@@ -6,7 +6,10 @@ import (
 	"os"
 	"path/filepath"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/repomap/repomap/internal/config"
+	"github.com/repomap/repomap/internal/planner"
+	"github.com/repomap/repomap/internal/planner/ui"
 	"github.com/repomap/repomap/internal/scanner"
 	"github.com/spf13/cobra"
 )
@@ -160,9 +163,59 @@ func runAnalyze(cmd *cobra.Command, args []string) error {
 		fmt.Printf("  Package: %s@%s\n", artifacts.PackageName, artifacts.PackageVersion)
 	}
 
-	// Remaining steps (planner, analyzer, renderer) will be implemented in later phases.
-	_ = cfg // will be used in planner phase
-	fmt.Println("\n  ℹ  Analysis pipeline not yet implemented. Scan results shown above.")
+	// Step 2: Cost analysis — load models, estimate costs, show interactive table
+	catalog, err := planner.LoadModels()
+	if err != nil {
+		return fmt.Errorf("loading model catalog: %w", err)
+	}
+
+	estimates := planner.EstimateAllModels(catalog, budget)
+	scored := planner.ScoreModels(estimates, cfg.ConnectedProviders())
+
+	costTable := ui.NewCostTable(scored)
+	p := tea.NewProgram(costTable)
+	finalModel, err := p.Run()
+	if err != nil {
+		return fmt.Errorf("running cost table: %w", err)
+	}
+
+	tableResult := finalModel.(ui.CostTableModel).Result()
+	if tableResult.Quit || tableResult.Selected == nil {
+		fmt.Println("\n  Cancelled.")
+		return nil
+	}
+
+	selectedModel := tableResult.Selected
+
+	// Step 3: Confirmation screen
+	confirm := ui.NewConfirm(ui.ConfirmOptions{
+		Model:         selectedModel.Model,
+		Cost:          selectedModel.Total,
+		Output:        runFlags.output,
+		Budget:        budget,
+		ModuleCount:   len(graph.Modules),
+		SkipSynthesis: runFlags.skipSynthesis,
+		Deep:          runFlags.deep,
+	})
+
+	p2 := tea.NewProgram(confirm)
+	finalConfirm, err := p2.Run()
+	if err != nil {
+		return fmt.Errorf("running confirmation: %w", err)
+	}
+
+	confirmResult := finalConfirm.(ui.ConfirmModel).Result()
+	if !confirmResult.Confirmed {
+		fmt.Println("\n  Cancelled.")
+		return nil
+	}
+
+	fmt.Printf("\n  Selected: %s (est. $%.2f)\n", selectedModel.Model.DisplayName, selectedModel.Total)
+
+	// Remaining steps (analyzer, renderer) will be implemented in later phases.
+	_ = gitMeta
+	_ = artifacts
+	fmt.Println("\n  ℹ  Analysis pipeline not yet implemented. Model selection complete.")
 
 	return nil
 }

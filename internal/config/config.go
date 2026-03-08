@@ -39,6 +39,7 @@ var providerEnvVars = map[string]string{
 	"openai":    "OPENAI_API_KEY",
 	"google":    "GOOGLE_API_KEY",
 	"groq":      "GROQ_API_KEY",
+	"kimi":      "MOONSHOT_API_KEY",
 }
 
 // Default returns a new Config with sensible defaults.
