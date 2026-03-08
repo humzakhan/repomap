@@ -1,0 +1,29 @@
+# Binary
+repomap
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Report build output
+report/dist/
+report/node_modules/
+
+# Context directory (agent collaboration)
+.context/
