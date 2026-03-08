@@ -77,6 +77,28 @@
       "quality_tier": "balanced",
       "recommended_for": ["summarization"],
       "notes": null
+    },
+    {
+      "id": "kimi-k2",
+      "display_name": "Kimi K2",
+      "provider": "kimi",
+      "context_window": 256000,
+      "input_cost_per_million": 0.60,
+      "output_cost_per_million": 2.50,
+      "quality_tier": "balanced",
+      "recommended_for": ["summarization", "large-repos"],
+      "notes": null
+    },
+    {
+      "id": "kimi-k2.5",
+      "display_name": "Kimi K2.5",
+      "provider": "kimi",
+      "context_window": 262144,
+      "input_cost_per_million": 0.60,
+      "output_cost_per_million": 3.00,
+      "quality_tier": "frontier",
+      "recommended_for": ["synthesis", "complex-codebases"],
+      "notes": null
     }
   ]
 }

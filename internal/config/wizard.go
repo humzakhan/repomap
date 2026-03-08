@@ -53,6 +53,12 @@ var supportedProviders = []providerInfo{
 		keyURL: "https://console.groq.com/keys",
 		envVar: "GROQ_API_KEY",
 	},
+	{
+		name:   "kimi",
+		label:  "Kimi (Moonshot)",
+		keyURL: "https://platform.moonshot.ai/console/api-keys",
+		envVar: "MOONSHOT_API_KEY",
+	},
 }
 
 var (
@@ -230,6 +236,10 @@ func verifyProviderKey(provider, apiKey string) error {
 		url = "https://api.groq.com/openai/v1/models"
 		authHeader = "Authorization"
 		apiKey = "Bearer " + apiKey
+	case "kimi":
+		url = "https://api.moonshot.cn/v1/models"
+		authHeader = "Authorization"
+		apiKey = "Bearer " + apiKey
 	default:
 		return fmt.Errorf("unknown provider: %s", provider)
 	}
@@ -288,6 +298,7 @@ func defaultModelFor(provider string) string {
 		"openai":    "gpt-4o-mini",
 		"google":    "gemini-1.5-flash",
 		"groq":      "llama-3.1-70b",
+		"kimi":      "kimi-k2",
 	}
 	if m, ok := defaults[provider]; ok {
 		return m

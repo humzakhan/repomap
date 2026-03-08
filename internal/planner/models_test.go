@@ -68,6 +68,8 @@ func TestLoadModelsExpectedModels(t *testing.T) {
 		"gemini-1.5-flash",
 		"gemini-1.5-pro",
 		"llama-3.1-70b",
+		"kimi-k2",
+		"kimi-k2.5",
 	}
 
 	for _, id := range expectedIDs {
@@ -101,6 +103,11 @@ func TestForProvider(t *testing.T) {
 	groqModels := catalog.ForProvider("groq")
 	if len(groqModels) != 1 {
 		t.Errorf("expected 1 groq model, got %d", len(groqModels))
+	}
+
+	kimiModels := catalog.ForProvider("kimi")
+	if len(kimiModels) != 2 {
+		t.Errorf("expected 2 kimi models, got %d", len(kimiModels))
 	}
 }
 
@@ -138,6 +145,7 @@ func TestProviders(t *testing.T) {
 		"anthropic": false,
 		"openai":    false,
 		"google":    false,
+		"kimi":      false,
 		"groq":      false,
 	}
 
