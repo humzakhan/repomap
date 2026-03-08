@@ -21,10 +21,6 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        goos: [linux, darwin]
-        goarch: [amd64, arm64]
     steps:
       - uses: actions/checkout@v4
 
@@ -33,7 +29,4 @@ jobs:
           go-version: "1.22"
 
       - name: Build binary
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-        run: go build -ldflags "-X github.com/repomap/repomap/cmd.version=${{ github.sha }}" -o repomap .
+        run: make build
