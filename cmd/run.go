@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/repomap/repomap/internal/analyzer"
@@ -52,6 +53,8 @@ func init() {
 }
 
 func runAnalyze(cmd *cobra.Command, args []string) error {
+	startTime := time.Now()
+
 	repoPath, err := filepath.Abs(filepath.Clean(args[0]))
 	if err != nil {
 		return fmt.Errorf("resolving path %s: %w", args[0], err)
@@ -266,6 +269,22 @@ func runAnalyze(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("\n  ✓  Report written to %s\n", runFlags.output)
+
+	// Log usage
+	usageErr := analyzer.LogUsage(analyzer.UsageEntry{
+		Timestamp:    time.Now(),
+		RepoName:     graph.Metadata.Name,
+		Model:        selectedModel.Model.ID,
+		Provider:     selectedModel.Model.Provider,
+		InputTokens:  budget.TotalInput,
+		OutputTokens: budget.EstimatedOutput,
+		Cost:         pipelineResult.Stats.TotalCost,
+		Modules:      len(graph.Modules),
+		Duration:     time.Since(startTime).String(),
+	})
+	if usageErr != nil {
+		fmt.Fprintf(os.Stderr, "  ⚠  Could not log usage: %v\n", usageErr)
+	}
 
 	_ = artifacts
 
