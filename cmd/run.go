@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +11,7 @@ import (
 	"github.com/repomap/repomap/internal/config"
 	"github.com/repomap/repomap/internal/planner"
 	"github.com/repomap/repomap/internal/planner/ui"
+	"github.com/repomap/repomap/internal/renderer"
 	"github.com/repomap/repomap/internal/scanner"
 	"github.com/spf13/cobra"
 )
@@ -248,20 +248,25 @@ func runAnalyze(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Printf("\n  Total cost: $%.4f\n", pipelineResult.Stats.TotalCost)
 
-	// Write pipeline result as JSON for now (renderer will consume this in Phase 5)
-	resultJSON, err := json.MarshalIndent(pipelineResult, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshaling results: %w", err)
+	// Step 5: Render HTML report
+	fmt.Println("  Generating report...")
+
+	reportData := &renderer.ReportData{
+		Summaries:    pipelineResult.Summaries,
+		Architecture: pipelineResult.Architecture,
+		DocWarnings:  pipelineResult.DocWarnings,
+		Stats:        pipelineResult.Stats,
+		Graph:        graph,
+		Metadata:     &graph.Metadata,
+		GitMeta:      gitMeta,
 	}
 
-	outputPath := runFlags.output + ".json"
-	if err := os.WriteFile(outputPath, resultJSON, 0644); err != nil {
-		return fmt.Errorf("writing results to %s: %w", outputPath, err)
+	if err := renderer.Render(reportData, runFlags.output); err != nil {
+		return fmt.Errorf("rendering report: %w", err)
 	}
 
-	fmt.Printf("  Results written to %s\n", outputPath)
+	fmt.Printf("\n  ✓  Report written to %s\n", runFlags.output)
 
-	_ = gitMeta
 	_ = artifacts
 
 	return nil
