@@ -1,0 +1,611 @@
+{
+  "summaries": [
+    {
+      "file_path": "src/api/routes/users.ts",
+      "language": "typescript",
+      "summary": "REST API controller for user management. Handles CRUD operations for user accounts including registration, profile updates, and account deletion. Validates input using Zod schemas and delegates business logic to the UserService.",
+      "responsibilities": [
+        "Define HTTP routes for user endpoints",
+        "Validate request payloads with Zod schemas",
+        "Delegate business logic to UserService",
+        "Format API responses with consistent error handling",
+        "Apply authentication middleware to protected routes"
+      ],
+      "patterns": ["Controller pattern", "Dependency injection"],
+      "dependencies_on": ["src/services/user.service.ts", "src/middleware/auth.ts", "src/models/user.ts"],
+      "depended_on_by_hint": ["src/api/index.ts"],
+      "layer": "api",
+      "exports": [
+        { "name": "userRouter", "kind": "variable", "line": 12 },
+        { "name": "UserCreateSchema", "kind": "type", "line": 5 }
+      ],
+      "imports": [
+        { "path": "express", "symbols": ["Router", "Request", "Response"], "is_external": true },
+        { "path": "../services/user.service", "symbols": ["UserService"], "is_external": false },
+        { "path": "../models/user", "symbols": ["User", "UserCreateInput"], "is_external": false }
+      ],
+      "source_code": "import { Router, Request, Response } from 'express';\nimport { UserService } from '../services/user.service';\nimport { User, UserCreateInput } from '../models/user';\n\nexport const userRouter = Router();\nconst service = new UserService();\n\nuserRouter.get('/', async (req: Request, res: Response) => {\n  const users = await service.findAll();\n  res.json({ data: users });\n});\n\nuserRouter.post('/', async (req: Request, res: Response) => {\n  const user = await service.create(req.body as UserCreateInput);\n  res.status(201).json({ data: user });\n});",
+      "token_count": 2450,
+      "status": "complete"
+    },
+    {
+      "file_path": "src/api/routes/auth.ts",
+      "language": "typescript",
+      "summary": "Authentication API controller handling login, logout, and token refresh. Implements JWT-based authentication with refresh token rotation.",
+      "responsibilities": [
+        "Handle login and logout requests",
+        "Issue and refresh JWT tokens",
+        "Validate credentials against AuthService",
+        "Set secure HTTP-only cookies for refresh tokens"
+      ],
+      "patterns": ["JWT authentication", "Refresh token rotation"],
+      "dependencies_on": ["src/services/auth.service.ts", "src/models/user.ts"],
+      "depended_on_by_hint": ["src/api/index.ts"],
+      "layer": "api",
+      "exports": [
+        { "name": "authRouter", "kind": "variable", "line": 8 }
+      ],
+      "imports": [
+        { "path": "express", "symbols": ["Router"], "is_external": true },
+        { "path": "../services/auth.service", "symbols": ["AuthService"], "is_external": false }
+      ],
+      "source_code": "import { Router } from 'express';\nimport { AuthService } from '../services/auth.service';\n\nexport const authRouter = Router();\nconst auth = new AuthService();\n\nauthRouter.post('/login', async (req, res) => {\n  const result = await auth.login(req.body);\n  res.json(result);\n});",
+      "token_count": 1820,
+      "status": "complete"
+    },
+    {
+      "file_path": "src/api/index.ts",
+      "language": "typescript",
+      "summary": "API entry point that mounts all route modules onto the Express application. Configures global middleware including CORS, body parsing, and error handling.",
+      "responsibilities": [
+        "Mount route modules",
+        "Configure global middleware",
+        "Set up error handling"
+      ],
+      "patterns": ["Composition root"],
+      "dependencies_on": ["src/api/routes/users.ts", "src/api/routes/auth.ts", "src/middleware/auth.ts"],
+      "depended_on_by_hint": ["src/index.ts"],
+      "layer": "api",
+      "exports": [
+        { "name": "createApp", "kind": "function", "line": 10 }
+      ],
+      "imports": [
+        { "path": "express", "symbols": ["Express"], "is_external": true },
+        { "path": "./routes/users", "symbols": ["userRouter"], "is_external": false },
+        { "path": "./routes/auth", "symbols": ["authRouter"], "is_external": false }
+      ],
+      "token_count": 980,
+      "status": "complete"
+    },
+    {
+      "file_path": "src/services/user.service.ts",
+      "language": "typescript",
+      "summary": "Business logic layer for user operations. Encapsulates domain rules for user creation, password hashing, and profile management. Interacts with the database through the UserRepository.",
+      "responsibilities": [
+        "Implement user CRUD business logic",
+        "Hash passwords before storage",
+        "Enforce business rules (unique email, password strength)",
+        "Emit domain events on user lifecycle changes"
+      ],
+      "patterns": ["Service layer", "Repository pattern", "Domain events"],
+      "dependencies_on": ["src/models/user.ts", "src/data/repositories/user.repo.ts", "src/utils/hash.ts"],
+      "depended_on_by_hint": ["src/api/routes/users.ts"],
+      "layer": "service",
+      "exports": [
+        { "name": "UserService", "kind": "class", "line": 8 }
+      ],
+      "imports": [
+        { "path": "../models/user", "symbols": ["User", "UserCreateInput"], "is_external": false },
+        { "path": "../data/repositories/user.repo", "symbols": ["UserRepository"], "is_external": false },
+        { "path": "../utils/hash", "symbols": ["hashPassword"], "is_external": false }
+      ],
+      "token_count": 3100,
+      "status": "complete"
+    },
+    {
+      "file_path": "src/services/auth.service.ts",
+      "language": "typescript",
+      "summary": "Authentication service managing JWT token issuance, validation, and refresh token rotation. Coordinates between UserService for credential verification and the token store for refresh tokens.",
+      "responsibilities": [
+        "Authenticate users with email/password",
+        "Issue JWT access and refresh tokens",
+        "Implement refresh token rotation",
+        "Invalidate tokens on logout"
+      ],
+      "patterns": ["Service layer", "Token-based authentication"],
+      "dependencies_on": ["src/services/user.service.ts", "src/data/repositories/token.repo.ts", "src/utils/jwt.ts"],
+      "depended_on_by_hint": ["src/api/routes/auth.ts"],
+      "layer": "service",
+      "exports": [
+        { "name": "AuthService", "kind": "class", "line": 6 }
+      ],
+      "imports": [
+        { "path": "./user.service", "symbols": ["UserService"], "is_external": false },
+        { "path": "../utils/jwt", "symbols": ["signToken", "verifyToken"], "is_external": false }
+      ],
+      "token_count": 2780,
+      "status": "complete"
+    },
+    {
+      "file_path": "src/services/notification.service.ts",
+      "language": "typescript",
+      "summary": "Notification dispatch service that sends emails and push notifications based on domain events. Supports templated email content and batched delivery.",
+      "responsibilities": [
+        "Send transactional emails via SendGrid",
+        "Dispatch push notifications",
+        "Render email templates",
+        "Queue notifications for batch delivery"
+      ],
+      "patterns": ["Observer pattern", "Template method"],
+      "dependencies_on": ["src/utils/email.ts", "src/models/notification.ts"],
+      "depended_on_by_hint": ["src/services/user.service.ts"],
+      "layer": "service",
+      "exports": [
+        { "name": "NotificationService", "kind": "class", "line": 5 }
+      ],
+      "imports": [
+        { "path": "../utils/email", "symbols": ["sendEmail"], "is_external": false },
+        { "path": "../models/notification", "symbols": ["Notification"], "is_external": false }
+      ],
+      "token_count": 1950,
+      "status": "complete"
+    },
+    {
+      "file_path": "src/models/user.ts",
+      "language": "typescript",
+      "summary": "User domain model and database schema definition. Defines the User entity with Prisma schema mapping, validation rules, and type-safe input/output DTOs.",
+      "responsibilities": [
+        "Define User entity shape",
+        "Provide Zod validation schemas",
+        "Export TypeScript types for User operations"
+      ],
+      "patterns": ["Domain model", "DTO pattern"],
+      "dependencies_on": [],
+      "depended_on_by_hint": ["src/services/user.service.ts", "src/api/routes/users.ts", "src/data/repositories/user.repo.ts"],
+      "layer": "data",
+      "exports": [
+        { "name": "User", "kind": "interface", "line": 3 },
+        { "name": "UserCreateInput", "kind": "type", "line": 15 },
+        { "name": "UserUpdateInput", "kind": "type", "line": 22 }
+      ],
+      "imports": [
+        { "path": "zod", "symbols": ["z"], "is_external": true }
+      ],
+      "token_count": 890,
+      "status": "complete"
+    },
+    {
+      "file_path": "src/models/notification.ts",
+      "language": "typescript",
+      "summary": "Notification domain model defining notification types, delivery channels, and status tracking for the notification system.",
+      "responsibilities": [
+        "Define Notification entity",
+        "Enumerate notification types and channels",
+        "Track delivery status"
+      ],
+      "patterns": ["Domain model"],
+      "dependencies_on": [],
+      "depended_on_by_hint": ["src/services/notification.service.ts"],
+      "layer": "data",
+      "exports": [
+        { "name": "Notification", "kind": "interface", "line": 3 },
+        { "name": "NotificationType", "kind": "type", "line": 12 }
+      ],
+      "imports": [],
+      "token_count": 420,
+      "status": "complete"
+    },
+    {
+      "file_path": "src/data/repositories/user.repo.ts",
+      "language": "typescript",
+      "summary": "Data access layer for User entities using Prisma ORM. Wraps database queries with type-safe methods and handles connection pooling.",
+      "responsibilities": [
+        "Execute CRUD queries for User table",
+        "Manage database transactions",
+        "Map between Prisma records and domain objects"
+      ],
+      "patterns": ["Repository pattern", "Data mapper"],
+      "dependencies_on": ["src/models/user.ts", "src/data/prisma.ts"],
+      "depended_on_by_hint": ["src/services/user.service.ts"],
+      "layer": "data",
+      "exports": [
+        { "name": "UserRepository", "kind": "class", "line": 6 }
+      ],
+      "imports": [
+        { "path": "@prisma/client", "symbols": ["PrismaClient"], "is_external": true },
+        { "path": "../../models/user", "symbols": ["User"], "is_external": false }
+      ],
+      "token_count": 1560,
+      "status": "complete"
+    },
+    {
+      "file_path": "src/data/repositories/token.repo.ts",
+      "language": "typescript",
+      "summary": "Repository for managing refresh tokens in the database. Supports token creation, lookup, and revocation for the authentication flow.",
+      "responsibilities": [
+        "Store and retrieve refresh tokens",
+        "Revoke tokens on logout",
+        "Clean up expired tokens"
+      ],
+      "patterns": ["Repository pattern"],
+      "dependencies_on": ["src/data/prisma.ts"],
+      "depended_on_by_hint": ["src/services/auth.service.ts"],
+      "layer": "data",
+      "exports": [
+        { "name": "TokenRepository", "kind": "class", "line": 4 }
+      ],
+      "imports": [
+        { "path": "@prisma/client", "symbols": ["PrismaClient"], "is_external": true }
+      ],
+      "token_count": 980,
+      "status": "complete"
+    },
+    {
+      "file_path": "src/data/prisma.ts",
+      "language": "typescript",
+      "summary": "Prisma client singleton. Initializes and exports a shared PrismaClient instance with logging configuration.",
+      "responsibilities": [
+        "Initialize Prisma client",
+        "Configure logging level",
+        "Export singleton instance"
+      ],
+      "patterns": ["Singleton"],
+      "dependencies_on": [],
+      "depended_on_by_hint": ["src/data/repositories/user.repo.ts", "src/data/repositories/token.repo.ts"],
+      "layer": "data",
+      "exports": [
+        { "name": "prisma", "kind": "variable", "line": 5 }
+      ],
+      "imports": [
+        { "path": "@prisma/client", "symbols": ["PrismaClient"], "is_external": true }
+      ],
+      "token_count": 320,
+      "status": "complete"
+    },
+    {
+      "file_path": "src/middleware/auth.ts",
+      "language": "typescript",
+      "summary": "Express middleware that extracts and verifies JWT tokens from the Authorization header. Attaches the authenticated user to the request context.",
+      "responsibilities": [
+        "Extract JWT from Authorization header",
+        "Verify token signature and expiry",
+        "Attach user context to request",
+        "Return 401 on invalid or missing tokens"
+      ],
+      "patterns": ["Middleware pattern"],
+      "dependencies_on": ["src/utils/jwt.ts"],
+      "depended_on_by_hint": ["src/api/routes/users.ts", "src/api/index.ts"],
+      "layer": "service",
+      "exports": [
+        { "name": "authMiddleware", "kind": "function", "line": 6 }
+      ],
+      "imports": [
+        { "path": "../utils/jwt", "symbols": ["verifyToken"], "is_external": false }
+      ],
+      "token_count": 680,
+      "status": "complete"
+    },
+    {
+      "file_path": "src/utils/hash.ts",
+      "language": "typescript",
+      "summary": "Password hashing utility using bcrypt. Provides functions for hashing passwords and comparing against stored hashes.",
+      "responsibilities": [
+        "Hash passwords with bcrypt",
+        "Compare password against hash",
+        "Configure salt rounds"
+      ],
+      "patterns": ["Utility module"],
+      "dependencies_on": [],
+      "depended_on_by_hint": ["src/services/user.service.ts"],
+      "layer": "util",
+      "exports": [
+        { "name": "hashPassword", "kind": "function", "line": 4 },
+        { "name": "comparePassword", "kind": "function", "line": 12 }
+      ],
+      "imports": [
+        { "path": "bcrypt", "symbols": ["hash", "compare"], "is_external": true }
+      ],
+      "token_count": 340,
+      "status": "complete"
+    },
+    {
+      "file_path": "src/utils/jwt.ts",
+      "language": "typescript",
+      "summary": "JWT token utility providing sign and verify functions with configurable expiry and secret management.",
+      "responsibilities": [
+        "Sign JWT tokens with configurable claims",
+        "Verify and decode tokens",
+        "Manage token expiry configuration"
+      ],
+      "patterns": ["Utility module"],
+      "dependencies_on": ["src/config/env.ts"],
+      "depended_on_by_hint": ["src/services/auth.service.ts", "src/middleware/auth.ts"],
+      "layer": "util",
+      "exports": [
+        { "name": "signToken", "kind": "function", "line": 5 },
+        { "name": "verifyToken", "kind": "function", "line": 18 }
+      ],
+      "imports": [
+        { "path": "jsonwebtoken", "symbols": ["sign", "verify"], "is_external": true },
+        { "path": "../config/env", "symbols": ["config"], "is_external": false }
+      ],
+      "token_count": 510,
+      "status": "complete"
+    },
+    {
+      "file_path": "src/utils/email.ts",
+      "language": "typescript",
+      "summary": "Email delivery utility wrapping the SendGrid API. Handles template rendering and delivery status tracking.",
+      "responsibilities": [
+        "Send transactional emails via SendGrid",
+        "Render Handlebars email templates",
+        "Track delivery status"
+      ],
+      "patterns": ["Adapter pattern"],
+      "dependencies_on": ["src/config/env.ts"],
+      "depended_on_by_hint": ["src/services/notification.service.ts"],
+      "layer": "util",
+      "exports": [
+        { "name": "sendEmail", "kind": "function", "line": 8 }
+      ],
+      "imports": [
+        { "path": "@sendgrid/mail", "symbols": ["default"], "is_external": true }
+      ],
+      "token_count": 620,
+      "status": "complete"
+    },
+    {
+      "file_path": "src/config/env.ts",
+      "language": "typescript",
+      "summary": "Environment configuration loader that reads from .env files and validates required variables using Zod schemas. Exports a typed config object.",
+      "responsibilities": [
+        "Load environment variables from .env",
+        "Validate required configuration",
+        "Export typed configuration object"
+      ],
+      "patterns": ["Configuration pattern"],
+      "dependencies_on": [],
+      "depended_on_by_hint": ["src/utils/jwt.ts", "src/utils/email.ts"],
+      "layer": "config",
+      "exports": [
+        { "name": "config", "kind": "variable", "line": 15 }
+      ],
+      "imports": [
+        { "path": "dotenv", "symbols": ["config"], "is_external": true },
+        { "path": "zod", "symbols": ["z"], "is_external": true }
+      ],
+      "token_count": 480,
+      "status": "complete"
+    },
+    {
+      "file_path": "src/index.ts",
+      "language": "typescript",
+      "summary": "Application entry point. Initializes the Express server, connects to the database, and starts listening on the configured port.",
+      "responsibilities": [
+        "Bootstrap the application",
+        "Connect to database",
+        "Start HTTP server"
+      ],
+      "patterns": ["Composition root"],
+      "dependencies_on": ["src/api/index.ts", "src/data/prisma.ts", "src/config/env.ts"],
+      "depended_on_by_hint": null,
+      "layer": "config",
+      "exports": [],
+      "imports": [
+        { "path": "./api", "symbols": ["createApp"], "is_external": false },
+        { "path": "./config/env", "symbols": ["config"], "is_external": false }
+      ],
+      "token_count": 350,
+      "status": "complete"
+    },
+    {
+      "file_path": "tests/services/user.service.test.ts",
+      "language": "typescript",
+      "summary": "Unit tests for UserService covering user creation, update, deletion, and edge cases like duplicate email handling.",
+      "responsibilities": [
+        "Test user CRUD operations",
+        "Verify password hashing behavior",
+        "Test duplicate email rejection",
+        "Validate domain event emission"
+      ],
+      "patterns": ["Unit test", "AAA pattern"],
+      "dependencies_on": ["src/services/user.service.ts"],
+      "depended_on_by_hint": null,
+      "layer": "test",
+      "exports": [],
+      "imports": [
+        { "path": "vitest", "symbols": ["describe", "it", "expect"], "is_external": true },
+        { "path": "../../src/services/user.service", "symbols": ["UserService"], "is_external": false }
+      ],
+      "token_count": 1450,
+      "status": "complete"
+    },
+    {
+      "file_path": "tests/api/users.test.ts",
+      "language": "typescript",
+      "summary": "Integration tests for the users API endpoint. Tests request/response cycles using supertest with an in-memory database.",
+      "responsibilities": [
+        "Test GET /users endpoint",
+        "Test POST /users with valid and invalid payloads",
+        "Verify authentication requirements",
+        "Test error response formatting"
+      ],
+      "patterns": ["Integration test", "Supertest"],
+      "dependencies_on": ["src/api/routes/users.ts", "src/api/index.ts"],
+      "depended_on_by_hint": null,
+      "layer": "test",
+      "exports": [],
+      "imports": [
+        { "path": "supertest", "symbols": ["default"], "is_external": true },
+        { "path": "../../src/api", "symbols": ["createApp"], "is_external": false }
+      ],
+      "token_count": 2100,
+      "status": "complete"
+    }
+  ],
+  "architecture": {
+    "narrative": "This is a Node.js/Express REST API application following a classic three-layer architecture: API controllers, service layer, and data access layer.\n\nThe API layer (src/api/) defines Express route handlers that validate incoming requests and delegate to service classes. Each resource (users, auth) has its own route module, composed together in the API index.\n\nThe service layer (src/services/) contains all business logic. Services are stateless classes that coordinate between repositories and utility modules. The UserService handles account lifecycle, AuthService manages JWT authentication, and NotificationService dispatches emails.\n\nThe data layer uses Prisma ORM with the repository pattern. Each entity has a dedicated repository class that encapsulates database queries. A shared Prisma singleton manages the connection pool.\n\nUtility modules provide cross-cutting concerns: password hashing (bcrypt), JWT management, and email delivery (SendGrid). Configuration is centralized in a Zod-validated environment loader.",
+    "layers": [
+      {
+        "name": "API Controllers",
+        "type": "api",
+        "modules": ["src/api/routes/users.ts", "src/api/routes/auth.ts", "src/api/index.ts"],
+        "description": "Express route handlers and middleware composition"
+      },
+      {
+        "name": "Services",
+        "type": "service",
+        "modules": ["src/services/user.service.ts", "src/services/auth.service.ts", "src/services/notification.service.ts", "src/middleware/auth.ts"],
+        "description": "Business logic, authentication, and notification dispatch"
+      },
+      {
+        "name": "Data Access",
+        "type": "data",
+        "modules": ["src/models/user.ts", "src/models/notification.ts", "src/data/repositories/user.repo.ts", "src/data/repositories/token.repo.ts", "src/data/prisma.ts"],
+        "description": "Domain models, Prisma repositories, and database connection management"
+      },
+      {
+        "name": "Utilities",
+        "type": "util",
+        "modules": ["src/utils/hash.ts", "src/utils/jwt.ts", "src/utils/email.ts"],
+        "description": "Shared helpers for cryptography, tokens, and email delivery"
+      },
+      {
+        "name": "Configuration",
+        "type": "config",
+        "modules": ["src/config/env.ts", "src/index.ts"],
+        "description": "Environment loading and application bootstrap"
+      }
+    ],
+    "critical_paths": [
+      {
+        "name": "User Registration",
+        "description": "New user signs up via the REST API",
+        "steps": [
+          { "module": "src/api/routes/users.ts", "action": "POST /users", "description": "Validates request body with Zod schema" },
+          { "module": "src/services/user.service.ts", "action": "create()", "description": "Checks for duplicate email, hashes password" },
+          { "module": "src/utils/hash.ts", "action": "hashPassword()", "description": "Bcrypt hash with 12 salt rounds" },
+          { "module": "src/data/repositories/user.repo.ts", "action": "insert()", "description": "Persists user to PostgreSQL via Prisma" },
+          { "module": "src/services/notification.service.ts", "action": "sendWelcome()", "description": "Queues welcome email" }
+        ]
+      },
+      {
+        "name": "Authentication Flow",
+        "description": "User logs in and receives JWT tokens",
+        "steps": [
+          { "module": "src/api/routes/auth.ts", "action": "POST /auth/login", "description": "Extracts credentials from request" },
+          { "module": "src/services/auth.service.ts", "action": "login()", "description": "Verifies credentials, issues tokens" },
+          { "module": "src/utils/jwt.ts", "action": "signToken()", "description": "Signs JWT with RS256 algorithm" },
+          { "module": "src/data/repositories/token.repo.ts", "action": "store()", "description": "Persists refresh token with expiry" }
+        ]
+      },
+      {
+        "name": "Authenticated Request",
+        "description": "Protected endpoint accessed with JWT token",
+        "steps": [
+          { "module": "src/middleware/auth.ts", "action": "authMiddleware()", "description": "Extracts and verifies JWT from header" },
+          { "module": "src/utils/jwt.ts", "action": "verifyToken()", "description": "Validates signature and expiry" },
+          { "module": "src/api/routes/users.ts", "action": "GET /users", "description": "Returns user data with authenticated context" }
+        ]
+      }
+    ],
+    "start_here": [
+      "Start with src/index.ts to understand how the application boots",
+      "Read src/api/index.ts to see how routes are composed",
+      "Look at src/services/user.service.ts for a representative service implementation",
+      "Check src/models/user.ts for the domain model pattern used throughout"
+    ],
+    "design_patterns": [
+      "Three-layer architecture (Controller → Service → Repository)",
+      "Repository pattern for data access abstraction",
+      "JWT-based stateless authentication with refresh token rotation",
+      "Centralized configuration with Zod validation",
+      "Domain events for cross-cutting concerns (notifications)"
+    ]
+  },
+  "doc_warnings": [
+    {
+      "file_path": "README.md",
+      "warning": "README references a /health endpoint that does not exist in the codebase",
+      "severity": "warning"
+    },
+    {
+      "file_path": "src/services/auth.service.ts",
+      "warning": "JSDoc claims tokens expire in 24h but code sets 1h expiry",
+      "severity": "error"
+    }
+  ],
+  "stats": {
+    "total_files": 19,
+    "total_modules": 19,
+    "total_tokens_used": 84201,
+    "total_cost": 0.21,
+    "model_used": "claude-haiku-3.5",
+    "duration_ms": 34500,
+    "languages": [
+      { "language": "TypeScript", "file_count": 17, "percentage": 89.5 },
+      { "language": "JSON", "file_count": 1, "percentage": 5.3 },
+      { "language": "YAML", "file_count": 1, "percentage": 5.2 }
+    ]
+  },
+  "graph": {
+    "nodes": [
+      { "id": "src/api/routes/users.ts", "label": "users.ts", "file_path": "src/api/routes/users.ts", "layer": "api", "size": 2450 },
+      { "id": "src/api/routes/auth.ts", "label": "auth.ts", "file_path": "src/api/routes/auth.ts", "layer": "api", "size": 1820 },
+      { "id": "src/api/index.ts", "label": "api/index.ts", "file_path": "src/api/index.ts", "layer": "api", "size": 980 },
+      { "id": "src/services/user.service.ts", "label": "user.service.ts", "file_path": "src/services/user.service.ts", "layer": "service", "size": 3100 },
+      { "id": "src/services/auth.service.ts", "label": "auth.service.ts", "file_path": "src/services/auth.service.ts", "layer": "service", "size": 2780 },
+      { "id": "src/services/notification.service.ts", "label": "notification.service.ts", "file_path": "src/services/notification.service.ts", "layer": "service", "size": 1950 },
+      { "id": "src/middleware/auth.ts", "label": "auth.ts (middleware)", "file_path": "src/middleware/auth.ts", "layer": "service", "size": 680 },
+      { "id": "src/models/user.ts", "label": "user.ts", "file_path": "src/models/user.ts", "layer": "data", "size": 890 },
+      { "id": "src/models/notification.ts", "label": "notification.ts", "file_path": "src/models/notification.ts", "layer": "data", "size": 420 },
+      { "id": "src/data/repositories/user.repo.ts", "label": "user.repo.ts", "file_path": "src/data/repositories/user.repo.ts", "layer": "data", "size": 1560 },
+      { "id": "src/data/repositories/token.repo.ts", "label": "token.repo.ts", "file_path": "src/data/repositories/token.repo.ts", "layer": "data", "size": 980 },
+      { "id": "src/data/prisma.ts", "label": "prisma.ts", "file_path": "src/data/prisma.ts", "layer": "data", "size": 320 },
+      { "id": "src/utils/hash.ts", "label": "hash.ts", "file_path": "src/utils/hash.ts", "layer": "util", "size": 340 },
+      { "id": "src/utils/jwt.ts", "label": "jwt.ts", "file_path": "src/utils/jwt.ts", "layer": "util", "size": 510 },
+      { "id": "src/utils/email.ts", "label": "email.ts", "file_path": "src/utils/email.ts", "layer": "util", "size": 620 },
+      { "id": "src/config/env.ts", "label": "env.ts", "file_path": "src/config/env.ts", "layer": "config", "size": 480 },
+      { "id": "src/index.ts", "label": "index.ts", "file_path": "src/index.ts", "layer": "config", "size": 350 },
+      { "id": "tests/services/user.service.test.ts", "label": "user.service.test.ts", "file_path": "tests/services/user.service.test.ts", "layer": "test", "size": 1450 },
+      { "id": "tests/api/users.test.ts", "label": "users.test.ts", "file_path": "tests/api/users.test.ts", "layer": "test", "size": 2100 }
+    ],
+    "edges": [
+      { "source": "src/api/routes/users.ts", "target": "src/services/user.service.ts", "weight": 3 },
+      { "source": "src/api/routes/users.ts", "target": "src/middleware/auth.ts", "weight": 1 },
+      { "source": "src/api/routes/users.ts", "target": "src/models/user.ts", "weight": 2 },
+      { "source": "src/api/routes/auth.ts", "target": "src/services/auth.service.ts", "weight": 3 },
+      { "source": "src/api/routes/auth.ts", "target": "src/models/user.ts", "weight": 1 },
+      { "source": "src/api/index.ts", "target": "src/api/routes/users.ts", "weight": 1 },
+      { "source": "src/api/index.ts", "target": "src/api/routes/auth.ts", "weight": 1 },
+      { "source": "src/api/index.ts", "target": "src/middleware/auth.ts", "weight": 1 },
+      { "source": "src/services/user.service.ts", "target": "src/models/user.ts", "weight": 3 },
+      { "source": "src/services/user.service.ts", "target": "src/data/repositories/user.repo.ts", "weight": 4 },
+      { "source": "src/services/user.service.ts", "target": "src/utils/hash.ts", "weight": 2 },
+      { "source": "src/services/auth.service.ts", "target": "src/services/user.service.ts", "weight": 2 },
+      { "source": "src/services/auth.service.ts", "target": "src/data/repositories/token.repo.ts", "weight": 3 },
+      { "source": "src/services/auth.service.ts", "target": "src/utils/jwt.ts", "weight": 3 },
+      { "source": "src/services/notification.service.ts", "target": "src/utils/email.ts", "weight": 2 },
+      { "source": "src/services/notification.service.ts", "target": "src/models/notification.ts", "weight": 1 },
+      { "source": "src/middleware/auth.ts", "target": "src/utils/jwt.ts", "weight": 2 },
+      { "source": "src/data/repositories/user.repo.ts", "target": "src/models/user.ts", "weight": 2 },
+      { "source": "src/data/repositories/user.repo.ts", "target": "src/data/prisma.ts", "weight": 1 },
+      { "source": "src/data/repositories/token.repo.ts", "target": "src/data/prisma.ts", "weight": 1 },
+      { "source": "src/utils/jwt.ts", "target": "src/config/env.ts", "weight": 1 },
+      { "source": "src/utils/email.ts", "target": "src/config/env.ts", "weight": 1 },
+      { "source": "src/index.ts", "target": "src/api/index.ts", "weight": 1 },
+      { "source": "src/index.ts", "target": "src/data/prisma.ts", "weight": 1 },
+      { "source": "src/index.ts", "target": "src/config/env.ts", "weight": 1 },
+      { "source": "tests/services/user.service.test.ts", "target": "src/services/user.service.ts", "weight": 4 },
+      { "source": "tests/api/users.test.ts", "target": "src/api/routes/users.ts", "weight": 3 },
+      { "source": "tests/api/users.test.ts", "target": "src/api/index.ts", "weight": 1 }
+    ]
+  },
+  "metadata": {
+    "repo_name": "acme-api",
+    "generated_at": "2026-03-08T14:32:00Z",
+    "model": "claude-haiku-3.5",
+    "commit_hash": "a1b2c3d4e5f6",
+    "branch": "main"
+  }
+}
