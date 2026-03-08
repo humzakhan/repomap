@@ -1,0 +1,82 @@
+{
+  "updated_at": "2026-03-01",
+  "models": [
+    {
+      "id": "claude-haiku-3-5",
+      "display_name": "Claude Haiku 3.5",
+      "provider": "anthropic",
+      "context_window": 200000,
+      "input_cost_per_million": 0.80,
+      "output_cost_per_million": 4.00,
+      "quality_tier": "balanced",
+      "recommended_for": ["summarization", "large-repos"],
+      "notes": null
+    },
+    {
+      "id": "claude-sonnet-4",
+      "display_name": "Claude Sonnet 4",
+      "provider": "anthropic",
+      "context_window": 200000,
+      "input_cost_per_million": 3.00,
+      "output_cost_per_million": 15.00,
+      "quality_tier": "frontier",
+      "recommended_for": ["synthesis", "complex-codebases"],
+      "notes": null
+    },
+    {
+      "id": "gpt-4o-mini",
+      "display_name": "GPT-4o Mini",
+      "provider": "openai",
+      "context_window": 128000,
+      "input_cost_per_million": 0.15,
+      "output_cost_per_million": 0.60,
+      "quality_tier": "economy",
+      "recommended_for": ["small-repos", "budget"],
+      "notes": null
+    },
+    {
+      "id": "gpt-4o",
+      "display_name": "GPT-4o",
+      "provider": "openai",
+      "context_window": 128000,
+      "input_cost_per_million": 2.50,
+      "output_cost_per_million": 10.00,
+      "quality_tier": "frontier",
+      "recommended_for": ["synthesis"],
+      "notes": null
+    },
+    {
+      "id": "gemini-1.5-flash",
+      "display_name": "Gemini 1.5 Flash",
+      "provider": "google",
+      "context_window": 1000000,
+      "input_cost_per_million": 0.075,
+      "output_cost_per_million": 0.30,
+      "quality_tier": "economy",
+      "recommended_for": ["large-repos", "budget"],
+      "notes": null
+    },
+    {
+      "id": "gemini-1.5-pro",
+      "display_name": "Gemini 1.5 Pro",
+      "provider": "google",
+      "context_window": 1000000,
+      "input_cost_per_million": 1.25,
+      "output_cost_per_million": 5.00,
+      "quality_tier": "balanced",
+      "recommended_for": ["large-repos", "synthesis"],
+      "notes": null
+    },
+    {
+      "id": "llama-3.1-70b",
+      "display_name": "Llama 3.1 70B (Groq)",
+      "provider": "groq",
+      "context_window": 131072,
+      "input_cost_per_million": 0.59,
+      "output_cost_per_million": 0.79,
+      "quality_tier": "balanced",
+      "recommended_for": ["summarization"],
+      "notes": null
+    }
+  ]
+}
