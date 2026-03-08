@@ -1,0 +1,16 @@
+linters:
+  enable:
+    - errcheck
+    - staticcheck
+    - gosec
+    - govet
+    - ineffassign
+    - unused
+
+linters-settings:
+  gosec:
+    excludes:
+      - G304 # allow file path variables (we validate paths ourselves)
+
+issues:
+  exclude-use-default: false
