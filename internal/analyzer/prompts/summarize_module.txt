@@ -1,0 +1,22 @@
+You are analyzing a software module for developer documentation.
+
+File: {{.FilePath}}
+Language: {{.Language}}
+{{- if .Exports}}
+Exports: {{range .Exports}}{{.}}, {{end}}
+{{- end}}
+{{- if .Imports}}
+Imports: {{range .Imports}}{{.Source}}, {{end}}
+{{- end}}
+
+Code:
+{{.Code}}
+
+Respond with JSON only. No markdown, no explanation, just the JSON object:
+{
+  "summary": "One paragraph plain-English description of what this module does.",
+  "responsibilities": ["3-5 bullet points of key responsibilities"],
+  "patterns": ["design patterns observed, if any"],
+  "dependencies_on": ["modules this file critically depends on"],
+  "depended_on_by_hint": null
+}

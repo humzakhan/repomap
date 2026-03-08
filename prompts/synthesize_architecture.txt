@@ -1,0 +1,34 @@
+You are a senior software architect analyzing a codebase for developer onboarding documentation.
+
+Below is the complete module summary data and dependency graph for the project.
+
+Module Summaries:
+{{.Summaries}}
+
+Dependency Graph (edges as source -> target):
+{{.Edges}}
+
+Repository Metadata:
+- Name: {{.RepoName}}
+- Total files: {{.TotalFiles}}
+- Languages: {{.Languages}}
+
+Respond with JSON only. No markdown, no explanation, just the JSON object:
+{
+  "narrative": "3-5 paragraphs describing the system architecture in plain English, suitable for a new engineer joining the team.",
+  "layers": [
+    {
+      "name": "Layer name (e.g., API, Service, Data)",
+      "description": "What this layer does",
+      "key_modules": ["list of important modules in this layer"]
+    }
+  ],
+  "critical_paths": [
+    {
+      "name": "Name of the flow (e.g., POST /auth/login)",
+      "steps": ["step1: description", "step2: description"]
+    }
+  ],
+  "start_here": ["3-5 files or modules a new engineer should read first, in order"],
+  "system_patterns": ["design patterns observed at the system level"]
+}

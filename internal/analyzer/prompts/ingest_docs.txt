@@ -1,0 +1,23 @@
+You are analyzing project documentation for accuracy against the actual codebase.
+
+Documentation content:
+{{.DocContent}}
+
+Code summaries for reference:
+{{.CodeSummaries}}
+
+Your task: Compare the documentation against the code summaries and identify discrepancies.
+
+Respond with JSON only. No markdown, no explanation, just the JSON object:
+{
+  "doc_summary": "Brief summary of what the documentation describes.",
+  "discrepancies": [
+    {
+      "location": "Where in the docs the issue is",
+      "issue": "What is wrong or outdated",
+      "severity": "high | medium | low"
+    }
+  ],
+  "missing_topics": ["Important topics the docs should cover but don't"],
+  "accuracy_score": 0.85
+}
