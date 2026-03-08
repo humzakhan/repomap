@@ -2,11 +2,13 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/repomap/repomap/internal/analyzer"
 	"github.com/repomap/repomap/internal/config"
 	"github.com/repomap/repomap/internal/planner"
 	"github.com/repomap/repomap/internal/planner/ui"
@@ -212,10 +214,77 @@ func runAnalyze(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("\n  Selected: %s (est. $%.2f)\n", selectedModel.Model.DisplayName, selectedModel.Total)
 
-	// Remaining steps (analyzer, renderer) will be implemented in later phases.
+	// Step 4: Create provider and run analysis pipeline
+	provider, err := createProvider(selectedModel.Model.Provider, cfg)
+	if err != nil {
+		return fmt.Errorf("creating provider: %w", err)
+	}
+
+	pipeline, err := analyzer.NewPipeline(analyzer.PipelineConfig{
+		ModelID:       selectedModel.Model.ID,
+		Provider:      provider,
+		Concurrency:   runFlags.concurrency,
+		SkipSynthesis: runFlags.skipSynthesis,
+		Graph:         graph,
+		Chunks:        chunks,
+		OnProgress: func(completed, total int, result analyzer.TaskResult) {
+			fmt.Printf("\r  Analyzing... %d/%d", completed, total)
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("creating pipeline: %w", err)
+	}
+
+	fmt.Println("\n  Running analysis pipeline...")
+	pipelineResult, err := pipeline.Run(ctx)
+	if err != nil {
+		return fmt.Errorf("running analysis pipeline: %w", err)
+	}
+
+	fmt.Printf("\n\n  ✓  Analysis complete — %d/%d modules summarized",
+		pipelineResult.Stats.SucceededTasks, pipelineResult.Stats.TotalTasks)
+	if pipelineResult.Stats.FailedTasks > 0 {
+		fmt.Printf(" (%d failed)", pipelineResult.Stats.FailedTasks)
+	}
+	fmt.Printf("\n  Total cost: $%.4f\n", pipelineResult.Stats.TotalCost)
+
+	// Write pipeline result as JSON for now (renderer will consume this in Phase 5)
+	resultJSON, err := json.MarshalIndent(pipelineResult, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshaling results: %w", err)
+	}
+
+	outputPath := runFlags.output + ".json"
+	if err := os.WriteFile(outputPath, resultJSON, 0644); err != nil {
+		return fmt.Errorf("writing results to %s: %w", outputPath, err)
+	}
+
+	fmt.Printf("  Results written to %s\n", outputPath)
+
 	_ = gitMeta
 	_ = artifacts
-	fmt.Println("\n  ℹ  Analysis pipeline not yet implemented. Model selection complete.")
 
 	return nil
+}
+
+func createProvider(providerName string, cfg *config.Config) (analyzer.Provider, error) {
+	apiKey := cfg.ResolveCredential(providerName, "")
+	if apiKey == "" {
+		return nil, fmt.Errorf("no credentials found for provider %s", providerName)
+	}
+
+	switch providerName {
+	case "anthropic":
+		return analyzer.NewAnthropicProvider(apiKey), nil
+	case "openai":
+		return analyzer.NewOpenAIProvider(apiKey), nil
+	case "google":
+		return analyzer.NewGoogleProvider(apiKey), nil
+	case "groq":
+		return analyzer.NewGroqProvider(apiKey), nil
+	case "kimi":
+		return analyzer.NewKimiProvider(apiKey), nil
+	default:
+		return nil, fmt.Errorf("unknown provider: %s", providerName)
+	}
 }
