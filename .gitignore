@@ -27,3 +27,6 @@ report/node_modules/
 
 # Context directory (agent collaboration)
 .context/
+
+# Renderer build output
+.internal/renderer/dist
