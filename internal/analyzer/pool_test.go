@@ -161,3 +161,99 @@ func TestPoolProgress(t *testing.T) {
 		}
 	}
 }
+
+// rateLimitProvider returns RateLimitError for the first N calls, then succeeds.
+type rateLimitProvider struct {
+	callCount    atomic.Int32
+	rateLimitFor int32
+	retryAfter   time.Duration
+}
+
+func (r *rateLimitProvider) Name() string { return "rate-limited" }
+
+func (r *rateLimitProvider) Complete(ctx context.Context, req CompletionRequest) (*CompletionResponse, error) {
+	count := r.callCount.Add(1)
+	if count <= r.rateLimitFor {
+		return nil, &RateLimitError{
+			RetryAfter: r.retryAfter,
+			Message:    fmt.Sprintf("rate limited (call %d)", count),
+		}
+	}
+	return &CompletionResponse{
+		Content:      `{"result": "ok"}`,
+		InputTokens:  100,
+		OutputTokens: 50,
+		Model:        req.Model,
+	}, nil
+}
+
+func (r *rateLimitProvider) EstimateCost(inputTokens, outputTokens int, modelID string) float64 {
+	return 0
+}
+
+func TestPoolRateLimitRetry(t *testing.T) {
+	// Provider rate-limits the first 2 calls, then succeeds.
+	// RetryAfter is very short so the test runs fast.
+	provider := &rateLimitProvider{rateLimitFor: 2, retryAfter: 10 * time.Millisecond}
+	pool := NewPool(1, provider)
+
+	tasks := []Task{
+		{ID: "task-1", Request: CompletionRequest{Model: "test-model"}},
+	}
+
+	results := pool.Run(context.Background(), tasks, nil)
+
+	if results[0].Error != nil {
+		t.Fatalf("expected success after rate-limit retries, got: %v", results[0].Error)
+	}
+	if results[0].Response.Content != `{"result": "ok"}` {
+		t.Errorf("unexpected content: %s", results[0].Response.Content)
+	}
+	// Should not count rate-limit waits as retries
+	if results[0].Retries != 0 {
+		t.Errorf("expected 0 retries (rate limits don't count), got %d", results[0].Retries)
+	}
+}
+
+func TestPoolRateLimitSharedBackoff(t *testing.T) {
+	// Two concurrent workers: first call gets rate-limited, second worker
+	// should wait for the shared backoff before attempting.
+	provider := &rateLimitProvider{rateLimitFor: 1, retryAfter: 50 * time.Millisecond}
+	pool := NewPool(2, provider)
+
+	tasks := []Task{
+		{ID: "task-1", Request: CompletionRequest{Model: "m"}},
+		{ID: "task-2", Request: CompletionRequest{Model: "m"}},
+	}
+
+	start := time.Now()
+	results := pool.Run(context.Background(), tasks, nil)
+	elapsed := time.Since(start)
+
+	for i, r := range results {
+		if r.Error != nil {
+			t.Errorf("task %d failed: %v", i, r.Error)
+		}
+	}
+
+	// Should have waited at least the retry-after duration
+	if elapsed < 40*time.Millisecond {
+		t.Errorf("expected at least ~50ms for rate-limit backoff, got %v", elapsed)
+	}
+}
+
+func TestPoolRateLimitExhaustion(t *testing.T) {
+	// Provider always rate-limits — should give up after maxRateLimitWaits.
+	provider := &rateLimitProvider{rateLimitFor: 100, retryAfter: 1 * time.Millisecond}
+	pool := NewPool(1, provider)
+
+	tasks := []Task{
+		{ID: "task-1", Request: CompletionRequest{Model: "m"}},
+	}
+
+	results := pool.Run(context.Background(), tasks, nil)
+
+	if results[0].Error == nil {
+		t.Fatal("expected error after exhausting rate-limit retries")
+	}
+}
