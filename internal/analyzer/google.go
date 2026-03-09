@@ -6,7 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -130,6 +133,14 @@ func (p *GoogleProvider) Complete(ctx context.Context, req CompletionRequest) (*
 		return nil, fmt.Errorf("reading google response: %w", err)
 	}
 
+	if resp.StatusCode == http.StatusTooManyRequests {
+		retryAfter := parseGoogleRetryAfter(resp.Header, respBody)
+		return nil, &RateLimitError{
+			RetryAfter: retryAfter,
+			Message:    fmt.Sprintf("google API rate limited (HTTP 429): %s", string(respBody)),
+		}
+	}
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("google API error (HTTP %d): %s", resp.StatusCode, string(respBody))
 	}
@@ -158,6 +169,57 @@ func (p *GoogleProvider) Complete(ctx context.Context, req CompletionRequest) (*
 		OutputTokens: gResp.UsageMetadata.CandidatesTokenCount,
 		Model:        req.Model,
 	}, nil
+}
+
+// parseGoogleRetryAfter extracts a retry delay from Google's 429 response.
+// It checks the Retry-After header first, then looks for retryDelay in the JSON body.
+func parseGoogleRetryAfter(header http.Header, body []byte) time.Duration {
+	const defaultRetry = 60 * time.Second
+
+	// Check standard Retry-After header (seconds)
+	if ra := header.Get("Retry-After"); ra != "" {
+		if secs, err := strconv.Atoi(ra); err == nil {
+			return time.Duration(secs) * time.Second
+		}
+	}
+
+	// Parse Google's JSON error body for retryDelay in details
+	var errResp struct {
+		Error struct {
+			Details []json.RawMessage `json:"details"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(body, &errResp); err == nil {
+		for _, detail := range errResp.Error.Details {
+			var retryInfo struct {
+				Type       string `json:"@type"`
+				RetryDelay string `json:"retryDelay"`
+			}
+			if err := json.Unmarshal(detail, &retryInfo); err == nil && retryInfo.RetryDelay != "" {
+				if d := parseGoogleDuration(retryInfo.RetryDelay); d > 0 {
+					return d
+				}
+			}
+		}
+	}
+
+	return defaultRetry
+}
+
+// parseGoogleDuration parses durations like "50s" or "50.99611819s".
+func parseGoogleDuration(s string) time.Duration {
+	s = strings.TrimSpace(s)
+	if strings.HasSuffix(s, "s") {
+		numStr := strings.TrimSuffix(s, "s")
+		if secs, err := strconv.ParseFloat(numStr, 64); err == nil {
+			return time.Duration(math.Ceil(secs)) * time.Second
+		}
+	}
+	// Fallback: try Go's time.ParseDuration
+	if d, err := time.ParseDuration(s); err == nil {
+		return d
+	}
+	return 0
 }
 
 func (p *GoogleProvider) EstimateCost(inputTokens, outputTokens int, modelID string) float64 {

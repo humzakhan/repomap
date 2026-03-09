@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -129,6 +130,19 @@ func (p *OpenAIProvider) Complete(ctx context.Context, req CompletionRequest) (*
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("reading %s response: %w", p.name, err)
+	}
+
+	if resp.StatusCode == http.StatusTooManyRequests {
+		retryAfter := 60 * time.Second // default
+		if ra := resp.Header.Get("Retry-After"); ra != "" {
+			if secs, err := strconv.Atoi(ra); err == nil {
+				retryAfter = time.Duration(secs) * time.Second
+			}
+		}
+		return nil, &RateLimitError{
+			RetryAfter: retryAfter,
+			Message:    fmt.Sprintf("%s API rate limited (HTTP 429): %s", p.name, string(respBody)),
+		}
 	}
 
 	if resp.StatusCode != http.StatusOK {

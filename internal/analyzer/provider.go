@@ -1,6 +1,9 @@
 package analyzer
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // Provider is the interface that all LLM providers implement.
 type Provider interface {
@@ -22,6 +25,16 @@ type CompletionRequest struct {
 type Message struct {
 	Role    string `json:"role"` // "system", "user", "assistant"
 	Content string `json:"content"`
+}
+
+// RateLimitError indicates a provider returned HTTP 429 with an optional retry delay.
+type RateLimitError struct {
+	RetryAfter time.Duration
+	Message    string
+}
+
+func (e *RateLimitError) Error() string {
+	return e.Message
 }
 
 // CompletionResponse contains the result of a single LLM call.
