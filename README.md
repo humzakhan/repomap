@@ -127,7 +127,7 @@ Other file types (JSON, YAML, Markdown, SQL, shell scripts, etc.) are included i
 |----------|--------|--------------|
 | **Anthropic** | Claude Haiku 3.5, Claude Sonnet 4 | `ANTHROPIC_API_KEY` |
 | **OpenAI** | GPT-4o Mini, GPT-4o | `OPENAI_API_KEY` |
-| **Google** | Gemini 1.5 Flash, Gemini 1.5 Pro | `GOOGLE_API_KEY` |
+| **Google** | Gemini 2.5 Flash, Gemini 2.5 Pro | `GOOGLE_API_KEY` |
 | **Groq** | Llama 3.1 70B | `GROQ_API_KEY` |
 | **Kimi** | Kimi K2, Kimi K2.5 | `MOONSHOT_API_KEY` |
 

@@ -234,8 +234,8 @@ $ repomap ./my-project
   ──────────────────────────────────────────────
   OTHER AVAILABLE PROVIDERS  (not connected)
   ──────────────────────────────────────────────
-     gemini-1.5-flash        1M         $0.03      → connect
-     gemini-1.5-pro          1M         $0.36      → connect
+     gemini-2.5-flash        1M         $0.03      → connect
+     gemini-2.5-pro          1M         $0.36      → connect
      llama-3.1-70b (Groq)    131K       $0.18      → connect
 
   ──────────────────────────────────────────────
