@@ -18,13 +18,14 @@ type RepoGraph struct {
 
 // Node represents a single file in the dependency graph.
 type Node struct {
-	ID       string       `json:"id"`
-	Path     string       `json:"path"`
-	Language string       `json:"language"`
-	Layer    string       `json:"layer"`
-	Symbols  []Symbol     `json:"symbols,omitempty"`
-	Imports  []ImportDecl `json:"imports,omitempty"`
-	Exports  []string     `json:"exports,omitempty"`
+	ID         string       `json:"id"`
+	Path       string       `json:"path"`
+	Language   string       `json:"language"`
+	Layer      string       `json:"layer"`
+	Symbols    []Symbol     `json:"symbols,omitempty"`
+	Imports    []ImportDecl `json:"imports,omitempty"`
+	Exports    []string     `json:"exports,omitempty"`
+	SkipReason string       `json:"skip_reason,omitempty"`
 }
 
 // Edge represents a dependency relationship between two nodes.
@@ -135,10 +136,11 @@ func BuildGraph(ctx context.Context, repoRoot string, walkResult *WalkResult, pa
 		fileToNode[entry.RelPath] = nodeID
 
 		node := Node{
-			ID:       nodeID,
-			Path:     entry.RelPath,
-			Language: entry.Language,
-			Layer:    classifyLayer(entry.RelPath, entry.Language),
+			ID:         nodeID,
+			Path:       entry.RelPath,
+			Language:   entry.Language,
+			Layer:      classifyLayer(entry.RelPath, entry.Language),
+			SkipReason: entry.SkipReason,
 		}
 
 		if pf, ok := parsedMap[entry.RelPath]; ok {

@@ -17,6 +17,8 @@ type FileEntry struct {
 	Language     string
 	SizeBytes    int64
 	IsEntryPoint bool
+	SkipAnalysis bool   // true if file should not be sent to LLM
+	SkipReason   string // "test", "generated", "barrel", or ""
 }
 
 // WalkResult contains the results of walking a repository.
