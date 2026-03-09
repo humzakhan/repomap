@@ -22,15 +22,40 @@ const LAYER_COLORS: Record<string, string> = {
   unknown: "#94a3b8",
 };
 
-const LAYER_ORDER: LayerType[] = [
-  "api",
-  "service",
-  "data",
-  "util",
-  "config",
-  "test",
-  "unknown",
-];
+const LAYER_HINTS: Record<string, LayerType> = {
+  api: "api",
+  routes: "api",
+  handlers: "api",
+  middleware: "api",
+  pages: "api",
+  cmd: "api",
+  components: "api",
+  service: "service",
+  services: "service",
+  aiprovider: "service",
+  classifier: "service",
+  workers: "service",
+  hooks: "service",
+  context: "service",
+  parser: "service",
+  report: "service",
+  recurrence: "service",
+  model: "data",
+  models: "data",
+  domain: "data",
+  repository: "data",
+  storage: "data",
+  db: "data",
+  migrations: "data",
+  types: "data",
+  config: "config",
+  lib: "util",
+  pkg: "util",
+  util: "util",
+  utils: "util",
+  test: "test",
+  testutil: "test",
+};
 
 export class NavTree {
   private el: HTMLElement;
@@ -43,24 +68,49 @@ export class NavTree {
     this.el = document.createElement("div");
     this.el.className = "nav-tree";
 
-    // Group summaries by layer
-    const grouped = new Map<LayerType, ModuleSummary[]>();
+    // Group summaries by module directory
+    const moduleGroups = new Map<string, ModuleSummary[]>();
     for (const s of options.summaries) {
-      const layer = s.layer || "unknown";
-      if (!grouped.has(layer)) grouped.set(layer, []);
-      grouped.get(layer)!.push(s);
+      const moduleId = this.getModuleDir(s.file_path);
+      if (!moduleGroups.has(moduleId)) moduleGroups.set(moduleId, []);
+      moduleGroups.get(moduleId)!.push(s);
     }
 
-    this.groups = LAYER_ORDER.filter((l) => grouped.has(l)).map((layer) => ({
-      name: layer.charAt(0).toUpperCase() + layer.slice(1),
-      layer,
-      items: grouped.get(layer)!.sort((a, b) =>
-        a.file_path.localeCompare(b.file_path)
-      ),
-      collapsed: false,
-    }));
+    this.groups = Array.from(moduleGroups.entries())
+      .map(([moduleId, items]) => {
+        const dirName = moduleId.split("/").pop() || moduleId;
+        const layer = LAYER_HINTS[dirName.toLowerCase()] || "unknown";
+        return {
+          name: this.getModuleLabel(moduleId),
+          layer,
+          items: items.sort((a, b) => a.file_path.localeCompare(b.file_path)),
+          collapsed: true,
+        };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
 
     this.render();
+  }
+
+  private getModuleDir(filePath: string): string {
+    const parts = filePath.split("/");
+    if (parts.length <= 1) return parts[0];
+    const dirParts = parts.slice(0, -1);
+    if (dirParts.length >= 3 && (dirParts[1] === "internal" || dirParts[1] === "src")) {
+      return dirParts.slice(0, 3).join("/");
+    }
+    if (dirParts.length >= 3) return dirParts.slice(0, 3).join("/");
+    if (dirParts.length >= 2) return dirParts.join("/");
+    return dirParts[0];
+  }
+
+  private getModuleLabel(moduleId: string): string {
+    const parts = moduleId.split("/");
+    if (parts.length >= 3 && (parts[1] === "internal" || parts[1] === "src")) {
+      return parts.slice(2).join("/");
+    }
+    if (parts.length >= 2) return parts[parts.length - 1];
+    return moduleId;
   }
 
   private render(): void {
@@ -79,6 +129,11 @@ export class NavTree {
       if (group.collapsed) chevron.classList.add("nav-tree__chevron--collapsed");
       chevron.textContent = "\u25BE"; // down triangle
       header.appendChild(chevron);
+
+      const dot = document.createElement("span");
+      dot.className = "nav-tree__dot";
+      dot.style.backgroundColor = LAYER_COLORS[group.layer] || LAYER_COLORS.unknown;
+      header.appendChild(dot);
 
       const label = document.createElement("span");
       label.textContent = `${group.name} (${group.items.length})`;
@@ -100,10 +155,10 @@ export class NavTree {
             itemEl.classList.add("nav-tree__item--selected");
           }
 
-          const dot = document.createElement("span");
-          dot.className = "nav-tree__dot";
-          dot.style.backgroundColor = LAYER_COLORS[group.layer] || LAYER_COLORS.unknown;
-          itemEl.appendChild(dot);
+          const itemDot = document.createElement("span");
+          itemDot.className = "nav-tree__dot";
+          itemDot.style.backgroundColor = LAYER_COLORS[group.layer] || LAYER_COLORS.unknown;
+          itemEl.appendChild(itemDot);
 
           const name = document.createElement("span");
           name.textContent = item.file_path.split("/").pop() || item.file_path;

@@ -6,8 +6,7 @@ import { NavTree } from "./components/NavTree";
 import { DetailPanel } from "./components/DetailPanel";
 import { StatusBar } from "./components/StatusBar";
 import { ArchitectureMap } from "./views/ArchitectureMap";
-import { FlowExplorer } from "./views/FlowExplorer";
-import { ModelCanvas } from "./views/ModelCanvas";
+import type { ModuleNode } from "./utils/moduleGrouper";
 
 // Load data from embedded JSON or fixture
 async function loadData(): Promise<RepoMapData> {
@@ -33,8 +32,6 @@ class App {
 
   // Views
   private architectureMap: ArchitectureMap | null = null;
-  private flowExplorer: FlowExplorer | null = null;
-  private modelCanvas: ModelCanvas | null = null;
 
   private canvasEl!: HTMLElement;
   private currentView: ViewName = "architecture";
@@ -60,14 +57,14 @@ class App {
     // Search bar (appended to toolbar)
     this.searchBar = new SearchBar({
       summaries: this.data.summaries,
-      onSelect: (fp) => this.selectModule(fp),
+      onSelect: (fp) => this.selectFile(fp),
     });
     this.toolbar.appendRight(this.searchBar.getElement());
 
     // Nav tree
     this.navTree = new NavTree({
       summaries: this.data.summaries,
-      onSelect: (fp) => this.selectModule(fp),
+      onSelect: (fp) => this.selectFile(fp),
     });
     this.navTree.mount(app);
 
@@ -78,7 +75,7 @@ class App {
 
     // Detail panel
     this.detailPanel = new DetailPanel({
-      onNavigate: (fp) => this.selectModule(fp),
+      onNavigate: (fp) => this.selectFile(fp),
     });
     this.detailPanel.mount(app);
 
@@ -102,33 +99,16 @@ class App {
       case "architecture":
         this.architectureMap = new ArchitectureMap({
           graph: this.data.graph,
-          onNodeSelect: (id) => {
-            if (id) {
-              this.selectModule(id);
+          summaries: this.data.summaries,
+          onNodeSelect: (id, moduleNode) => {
+            if (id && moduleNode) {
+              this.selectModuleNode(moduleNode);
             } else {
               this.detailPanel.showEmpty();
             }
           },
         });
         this.architectureMap.mount(this.canvasEl);
-        break;
-
-      case "flows":
-        this.flowExplorer = new FlowExplorer({
-          criticalPaths: this.data.architecture?.critical_paths || [],
-          onNodeSelect: (id) => this.selectModule(id),
-        });
-        this.flowExplorer.mount(this.canvasEl);
-        break;
-
-      case "models":
-        this.modelCanvas = new ModelCanvas({
-          stats: this.data.stats,
-          graph: this.data.graph,
-          summaries: this.data.summaries,
-          onNodeSelect: (id) => this.selectModule(id),
-        });
-        this.modelCanvas.mount(this.canvasEl);
         break;
     }
   }
@@ -138,26 +118,25 @@ class App {
       this.architectureMap.unmount();
       this.architectureMap = null;
     }
-    if (this.flowExplorer) {
-      this.flowExplorer.unmount();
-      this.flowExplorer = null;
-    }
-    if (this.modelCanvas) {
-      this.modelCanvas.unmount();
-      this.modelCanvas = null;
-    }
   }
 
-  private selectModule(filePath: string): void {
+  private selectFile(filePath: string): void {
     const summary = this.summaryMap.get(filePath);
     if (!summary) return;
 
     this.navTree.select(filePath);
     this.detailPanel.show(summary);
 
-    // If on architecture view, highlight the node
     if (this.architectureMap) {
       this.architectureMap.highlightNode(filePath);
+    }
+  }
+
+  private selectModuleNode(moduleNode: ModuleNode): void {
+    this.detailPanel.showModule(moduleNode, this.summaryMap);
+
+    if (this.architectureMap) {
+      this.architectureMap.highlightNode(moduleNode.id);
     }
   }
 }

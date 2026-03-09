@@ -102,10 +102,12 @@ export interface RepoGraph {
 
 export interface GraphNode {
   id: string;
-  label: string;
-  file_path: string;
-  layer: LayerType;
-  size: number;
+  path?: string;
+  label?: string;
+  file_path?: string;
+  language?: string;
+  layer: LayerType | string;
+  size?: number;
 }
 
 export interface GraphEdge {
