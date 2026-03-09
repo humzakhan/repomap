@@ -1,4 +1,4 @@
-export type ViewName = "architecture" | "flows" | "models";
+export type ViewName = "architecture";
 
 export interface ToolbarOptions {
   repoName: string;
@@ -7,8 +7,6 @@ export interface ToolbarOptions {
 
 const TABS: { id: ViewName; label: string }[] = [
   { id: "architecture", label: "Architecture" },
-  { id: "flows", label: "Flows" },
-  { id: "models", label: "Models" },
 ];
 
 export class Toolbar {
@@ -16,6 +14,7 @@ export class Toolbar {
   private activeView: ViewName = "architecture";
   private tabButtons: Map<ViewName, HTMLButtonElement> = new Map();
   private onViewChange: (view: ViewName) => void;
+  private mounted = false;
 
   constructor(options: ToolbarOptions) {
     this.onViewChange = options.onViewChange;
@@ -62,7 +61,9 @@ export class Toolbar {
     for (const [id, btn] of this.tabButtons) {
       btn.classList.toggle("toolbar__tab--active", id === view);
     }
-    this.onViewChange(view);
+    if (this.mounted) {
+      this.onViewChange(view);
+    }
   }
 
   getActiveView(): ViewName {
@@ -76,5 +77,6 @@ export class Toolbar {
 
   mount(parent: HTMLElement): void {
     parent.appendChild(this.el);
+    this.mounted = true;
   }
 }

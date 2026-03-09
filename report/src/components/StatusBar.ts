@@ -18,7 +18,7 @@ export class StatusBar {
     this.addItem(`${stats.total_modules} modules`);
     this.addItem(`${stats.total_files} files`);
 
-    const langs = stats.languages
+    const langs = (stats.languages || [])
       .map((l) => `${l.language} ${l.percentage.toFixed(0)}%`)
       .join(", ");
     this.addItem(langs);

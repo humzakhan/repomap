@@ -27,9 +27,9 @@ export class SearchBar {
       kind: s.layer,
       keywords: [
         s.summary,
-        ...s.responsibilities,
-        ...s.exports.map((e) => e.name),
-        ...s.patterns,
+        ...(s.responsibilities || []),
+        ...(s.exports || []).map((e) => e.name),
+        ...(s.patterns || []),
       ].join(" "),
     }));
 

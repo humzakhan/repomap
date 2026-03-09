@@ -1,4 +1,5 @@
 import type { ModuleSummary } from "../types";
+import type { ModuleNode } from "../utils/moduleGrouper";
 
 const LAYER_COLORS: Record<string, string> = {
   api: "#7c3aed",
@@ -235,6 +236,84 @@ export class DetailPanel {
       ruby: "ruby",
     };
     return map[lang.toLowerCase()] || "typescript";
+  }
+
+  showModule(moduleNode: ModuleNode, summaryMap: Map<string, ModuleSummary>): void {
+    this.el.innerHTML = "";
+
+    // Header
+    const header = document.createElement("div");
+    header.className = "detail-panel__header";
+
+    const badge = document.createElement("span");
+    badge.className = "detail-panel__badge";
+    badge.textContent = moduleNode.layer;
+    badge.style.backgroundColor = LAYER_COLORS[moduleNode.layer] || LAYER_COLORS.unknown;
+    badge.style.color = "#fff";
+    header.appendChild(badge);
+
+    const title = document.createElement("div");
+    title.className = "detail-panel__title";
+    title.textContent = moduleNode.label;
+    header.appendChild(title);
+    this.el.appendChild(header);
+
+    // File count
+    this.addSection(`${moduleNode.fileCount} Files`, () => {
+      const container = document.createElement("div");
+      for (const fp of moduleNode.files) {
+        const link = document.createElement("a");
+        link.className = "detail-panel__dep";
+        link.textContent = fp.split("/").pop() || fp;
+        link.title = fp;
+        link.href = "#";
+        link.addEventListener("click", (e) => {
+          e.preventDefault();
+          this.onNavigate(fp);
+        });
+        container.appendChild(link);
+      }
+      return container;
+    });
+
+    // Module summary (combined from file summaries)
+    if (moduleNode.summary) {
+      this.addSection("Summary", () => {
+        const p = document.createElement("div");
+        p.className = "detail-panel__summary";
+        p.textContent = moduleNode.summary;
+        return p;
+      });
+    }
+
+    // Key exports across all files in the module
+    const allExports: string[] = [];
+    for (const fp of moduleNode.files) {
+      const s = summaryMap.get(fp);
+      if (s && s.exports) {
+        for (const exp of s.exports) {
+          allExports.push(`${exp.name} (${exp.kind})`);
+        }
+      }
+    }
+    if (allExports.length > 0) {
+      this.addSection("Exports", () => {
+        const ul = document.createElement("ul");
+        ul.className = "detail-panel__list";
+        for (const exp of allExports.slice(0, 15)) {
+          const li = document.createElement("li");
+          li.textContent = exp;
+          ul.appendChild(li);
+        }
+        if (allExports.length > 15) {
+          const li = document.createElement("li");
+          li.textContent = `... and ${allExports.length - 15} more`;
+          li.style.color = "#64748b";
+          ul.appendChild(li);
+        }
+        return ul;
+      });
+    }
   }
 
   mount(parent: HTMLElement): void {
