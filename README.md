@@ -12,7 +12,7 @@ You can configure and select models of your choice:
 
 And generate a report that looks like the following:
 
-<video src="docs/repomap-demo.mov" controls="controls" muted="muted" width="100%"></video>
+![Repomap Demo](docs/repomap-demo.gif)
 
 ## Quick start
 
