@@ -4,6 +4,8 @@ Repomap helps you understand an unfamiliar codebase in minutes instead of days. 
 
 Point it at any Git repo. Get back a single `.html` file you can open in any browser, share with your team, or archive. No servers, no accounts, no ongoing costs beyond the one-time LLM analysis.
 
+![Repomap Demo](https://i.imgur.com/h7fCew9.png)
+
 ## Quick start
 
 ### Install
