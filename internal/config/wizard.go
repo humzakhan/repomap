@@ -296,7 +296,7 @@ func defaultModelFor(provider string) string {
 	defaults := map[string]string{
 		"anthropic": "claude-haiku-3-5",
 		"openai":    "gpt-4o-mini",
-		"google":    "gemini-1.5-flash",
+		"google":    "gemini-2.5-flash",
 		"groq":      "llama-3.1-70b",
 		"kimi":      "kimi-k2",
 	}
