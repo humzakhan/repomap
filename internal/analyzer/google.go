@@ -162,8 +162,8 @@ func (p *GoogleProvider) Complete(ctx context.Context, req CompletionRequest) (*
 
 func (p *GoogleProvider) EstimateCost(inputTokens, outputTokens int, modelID string) float64 {
 	pricing := map[string][2]float64{
-		"gemini-1.5-flash": {0.075, 0.30},
-		"gemini-1.5-pro":   {1.25, 5.00},
+		"gemini-2.5-flash": {0.30, 2.50},
+		"gemini-2.5-pro":   {1.25, 10.00},
 	}
 
 	rates, ok := pricing[modelID]
