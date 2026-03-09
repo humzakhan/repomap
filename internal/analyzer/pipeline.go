@@ -284,7 +284,7 @@ func (p *Pipeline) runSynthesis(ctx context.Context, summaries []ModuleSummary) 
 				{Role: "user", Content: prompt},
 			},
 			Temperature: 0.2,
-			MaxTokens:   4096,
+			MaxTokens:   8192,
 			JSONMode:    true,
 		},
 	}}
@@ -304,9 +304,19 @@ func (p *Pipeline) runSynthesis(ctx context.Context, summaries []ModuleSummary) 
 		return nil, stats, fmt.Errorf("synthesis failed: %w", r.Error)
 	}
 
-	var arch ArchitectureSynthesis
-	if err := json.Unmarshal([]byte(r.Response.Content), &arch); err != nil {
+	content := strings.TrimSpace(r.Response.Content)
+	if content == "" {
 		stats.FailedTasks++
+		return nil, stats, fmt.Errorf("synthesis returned empty response (model may have refused or timed out)")
+	}
+
+	var arch ArchitectureSynthesis
+	if err := json.Unmarshal([]byte(content), &arch); err != nil {
+		stats.FailedTasks++
+		// Truncated JSON is typically caused by hitting the max output token limit
+		if strings.HasPrefix(content, "{") && !strings.HasSuffix(content, "}") {
+			return nil, stats, fmt.Errorf("synthesis response was truncated (output likely exceeded max token limit): %w", err)
+		}
 		return nil, stats, fmt.Errorf("parsing synthesis response: %w", err)
 	}
 
