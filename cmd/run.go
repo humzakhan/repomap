@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -101,7 +102,7 @@ func runAnalyze(cmd *cobra.Command, args []string) error {
 	var parsedFiles []*scanner.ParsedFile
 	var chunks []scanner.Chunk
 
-	for _, entry := range walkResult.Files {
+	for i, entry := range walkResult.Files {
 		if !scanner.SupportedForParsing(entry.Language) {
 			continue
 		}
@@ -112,6 +113,9 @@ func runAnalyze(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
+		// Classify the file for analysis filtering
+		scanner.ClassifyFile(&walkResult.Files[i], content)
+
 		pf, parseErr := scanner.Parse(ctx, entry, content)
 		if parseErr != nil {
 			fmt.Fprintf(os.Stderr, "  ⚠  Could not parse %s: %v\n", entry.RelPath, parseErr)
@@ -119,6 +123,11 @@ func runAnalyze(cmd *cobra.Command, args []string) error {
 		}
 
 		parsedFiles = append(parsedFiles, pf)
+
+		// Skip chunking for files that don't need LLM analysis
+		if walkResult.Files[i].SkipAnalysis {
+			continue
+		}
 
 		fileChunks, chunkErr := scanner.ChunkFile(pf, content)
 		if chunkErr != nil {
@@ -146,11 +155,37 @@ func runAnalyze(cmd *cobra.Command, args []string) error {
 	// Extract project artifacts
 	artifacts, _ := scanner.ExtractArtifacts(repoPath)
 
+	// Count skipped files by reason
+	skipCounts := map[string]int{}
+	for _, entry := range walkResult.Files {
+		if entry.SkipAnalysis {
+			skipCounts[entry.SkipReason]++
+		}
+	}
+	totalSkipped := 0
+	for _, c := range skipCounts {
+		totalSkipped += c
+	}
+
 	fmt.Printf("\n  ✓  Scan complete — %d files, %d parsed, %d languages\n\n",
 		walkResult.TotalFiles, len(parsedFiles), len(walkResult.LanguageStats))
 
 	for lang, count := range walkResult.LanguageStats {
 		fmt.Printf("    %-15s %d files\n", lang, count)
+	}
+
+	if totalSkipped > 0 {
+		parts := []string{}
+		if n := skipCounts["test"]; n > 0 {
+			parts = append(parts, fmt.Sprintf("%d test", n))
+		}
+		if n := skipCounts["generated"]; n > 0 {
+			parts = append(parts, fmt.Sprintf("%d generated", n))
+		}
+		if n := skipCounts["barrel"]; n > 0 {
+			parts = append(parts, fmt.Sprintf("%d barrel", n))
+		}
+		fmt.Printf("\n  Skipped from LLM analysis: %s\n", strings.Join(parts, ", "))
 	}
 
 	fmt.Printf("\n  Graph: %d nodes, %d edges, %d modules\n",
