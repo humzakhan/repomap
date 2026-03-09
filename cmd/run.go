@@ -61,6 +61,12 @@ func runAnalyze(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("resolving path %s: %w", args[0], err)
 	}
 
+	// Derive output filename from repo name if not explicitly set
+	if !cmd.Flags().Changed("output") {
+		repoName := filepath.Base(repoPath)
+		runFlags.output = repoName + "-repomap.html"
+	}
+
 	info, err := os.Stat(repoPath)
 	if err != nil {
 		return fmt.Errorf("accessing %s: %w", repoPath, err)
