@@ -1,11 +1,24 @@
-import React, { useEffect, useRef, useCallback } from "react";
-import cytoscape from "cytoscape";
-import cytoscapeDagre from "cytoscape-dagre";
-import type { RepoGraph, ModuleSummary } from "../types";
-import { groupIntoModules, type ModuleNode, type ModuleGraph } from "../utils/moduleGrouper";
-import { getLayerTheme } from "../utils/layerColors";
-
-cytoscapeDagre(cytoscape);
+import React, { useMemo, useCallback, useState } from "react";
+import {
+  ReactFlow,
+  Background,
+  MiniMap,
+  Controls,
+  type Node,
+  type Edge,
+  type NodeTypes,
+  type NodeProps,
+  useNodesState,
+  useEdgesState,
+  MarkerType,
+  Handle,
+  Position,
+} from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
+import { motion } from "framer-motion";
+import type { RepoGraph, ModuleSummary, LayerType } from "../types";
+import { groupIntoModules, type ModuleNode } from "../utils/moduleGrouper";
+import { getLayerTheme, getLayerColor } from "../utils/layerColors";
 
 interface ArchitectureMapProps {
   graph: RepoGraph;
@@ -13,241 +26,308 @@ interface ArchitectureMapProps {
   onNodeSelect: (moduleId: string | null, moduleNode?: ModuleNode) => void;
 }
 
-export function ArchitectureMap({ graph, summaries, onNodeSelect }: ArchitectureMapProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const overlayRef = useRef<HTMLDivElement>(null);
-  const cyRef = useRef<cytoscape.Core | null>(null);
-  const moduleGraphRef = useRef<ModuleGraph | null>(null);
-  const nodeMapRef = useRef<Map<string, ModuleNode>>(new Map());
+// Layer group ordering for dagre-style layout
+const LAYER_ORDER: Record<string, number> = {
+  api: 0,
+  service: 1,
+  data: 2,
+  config: 3,
+  util: 4,
+  test: 5,
+  unknown: 6,
+};
 
-  const updateOverlayPositions = useCallback(() => {
-    const cy = cyRef.current;
-    const overlay = overlayRef.current;
-    if (!cy || !overlay) return;
+type ModuleNodeData = {
+  moduleNode: ModuleNode;
+  selected: boolean;
+};
 
-    const pan = cy.pan();
-    const zoom = cy.zoom();
-
-    overlay.querySelectorAll<HTMLElement>(".module-card").forEach((card) => {
-      const nodeId = card.dataset.nodeId;
-      if (!nodeId) return;
-
-      const cyNode = cy.getElementById(nodeId);
-      if (cyNode.length === 0) return;
-
-      const pos = cyNode.position();
-      const x = pos.x * zoom + pan.x;
-      const y = pos.y * zoom + pan.y;
-
-      const w = card.offsetWidth;
-      const h = card.offsetHeight;
-      card.style.left = `${x - w / 2}px`;
-      card.style.top = `${y - h / 2}px`;
-      card.style.transform = `scale(${Math.min(1, zoom)})`;
-      card.style.transformOrigin = "center center";
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!containerRef.current || !overlayRef.current) return;
-
-    const moduleGraph = groupIntoModules(summaries, graph);
-    moduleGraphRef.current = moduleGraph;
-    const nodeMap = new Map<string, ModuleNode>();
-    for (const n of moduleGraph.nodes) nodeMap.set(n.id, n);
-    nodeMapRef.current = nodeMap;
-
-    const elements: cytoscape.ElementDefinition[] = [];
-
-    for (const node of moduleGraph.nodes) {
-      const colors = getLayerTheme(node.layer);
-      elements.push({
-        data: {
-          id: node.id,
-          label: node.label,
-          layer: node.layer,
-          bgColor: colors.bg,
-          borderColor: colors.border,
-          textColor: colors.text,
-        },
-      });
-    }
-
-    for (const edge of moduleGraph.edges) {
-      elements.push({
-        data: { source: edge.source, target: edge.target, weight: edge.weight },
-      });
-    }
-
-    const cy = cytoscape({
-      container: containerRef.current,
-      elements,
-      style: [
-        {
-          selector: "node",
-          style: {
-            shape: "roundrectangle",
-            width: 160,
-            height: 48,
-            "background-color": "data(bgColor)",
-            "border-width": 1.5,
-            "border-color": "data(borderColor)",
-            "border-opacity": 0.6,
-            label: "data(label)",
-            "font-size": "11px",
-            "font-family": "'JetBrains Mono', 'Fira Code', monospace",
-            "font-weight": "600" as unknown as number,
-            color: "data(textColor)",
-            "text-valign": "center",
-            "text-halign": "center",
-            "text-margin-y": -6,
-            "text-outline-width": 0,
-          },
-        },
-        {
-          selector: "node:selected",
-          style: { "border-width": 2, "border-color": "#ffffff", "border-opacity": 1 },
-        },
-        {
-          selector: "node:active",
-          style: { "overlay-opacity": 0 },
-        },
-        {
-          selector: "edge",
-          style: {
-            width: 1.5,
-            "line-color": "#1e293b",
-            "target-arrow-color": "#334155",
-            "target-arrow-shape": "triangle",
-            "arrow-scale": 0.8,
-            "curve-style": "bezier",
-            opacity: 0.5,
-          },
-        },
-        {
-          selector: "edge:selected",
-          style: { "line-color": "#64748b", "target-arrow-color": "#64748b", opacity: 1 },
-        },
-      ],
-      layout: {
-        name: "dagre",
-        rankDir: "TB",
-        spacingFactor: 1.6,
-        nodeSep: 60,
-        rankSep: 100,
-        animate: false,
-      } as cytoscape.LayoutOptions,
-      minZoom: 0.3,
-      maxZoom: 2.5,
-      wheelSensitivity: 0.3,
-    });
-
-    cyRef.current = cy;
-
-    // Render card overlays
-    renderCardOverlays(overlayRef.current, cy, nodeMap, onNodeSelect);
-    updateOverlayPositions();
-
-    cy.on("viewport", updateOverlayPositions);
-    cy.on("position", updateOverlayPositions);
-
-    cy.on("tap", "node", (evt) => {
-      const nodeId = evt.target.id();
-      onNodeSelect(nodeId, nodeMap.get(nodeId));
-    });
-
-    cy.on("tap", (evt) => {
-      if (evt.target === cy) onNodeSelect(null);
-    });
-
-    return () => {
-      cy.destroy();
-      cyRef.current = null;
-    };
-  }, [graph, summaries, onNodeSelect, updateOverlayPositions]);
+function ModuleCard({ data }: NodeProps<Node<ModuleNodeData>>) {
+  const { moduleNode, selected } = data;
+  const colors = getLayerTheme(moduleNode.layer);
 
   return (
-    <div style={{ position: "relative", width: "100%", height: "100%" }}>
-      <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+    <motion.div
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      style={{
+        minWidth: 160,
+        padding: "10px 16px",
+        borderRadius: 12,
+        background: colors.bg,
+        border: `1.5px solid ${selected ? colors.border : colors.border + "88"}`,
+        boxShadow: selected
+          ? `0 0 0 3px ${colors.border}44, 0 8px 32px #00000080`
+          : "0 2px 8px #00000040",
+        cursor: "pointer",
+        transition: "border-color 0.15s, box-shadow 0.15s",
+      }}
+    >
+      <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
+      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 4 }}>
+        <div
+          style={{
+            width: 7,
+            height: 7,
+            borderRadius: "50%",
+            background: colors.dot,
+            flexShrink: 0,
+          }}
+        />
+        <span
+          style={{
+            color: colors.text,
+            fontSize: 11,
+            fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+            fontWeight: 600,
+            letterSpacing: "0.02em",
+          }}
+        >
+          {moduleNode.label}
+        </span>
+      </div>
+      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+        <span style={{ color: "#475569", fontSize: 10, fontFamily: "monospace" }}>
+          {moduleNode.fileCount} file{moduleNode.fileCount !== 1 ? "s" : ""}
+        </span>
+        <span
+          style={{
+            color: colors.border,
+            fontSize: 9,
+            fontFamily: "monospace",
+            background: colors.border + "18",
+            padding: "1px 5px",
+            borderRadius: 3,
+          }}
+        >
+          {moduleNode.layer}
+        </span>
+      </div>
+      <Handle type="source" position={Position.Bottom} style={{ opacity: 0 }} />
+    </motion.div>
+  );
+}
+
+const nodeTypes: NodeTypes = {
+  moduleCard: ModuleCard,
+};
+
+export function ArchitectureMap({ graph, summaries, onNodeSelect }: ArchitectureMapProps) {
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [filterLayer, setFilterLayer] = useState<string | null>(null);
+
+  const moduleGraph = useMemo(() => groupIntoModules(summaries, graph), [summaries, graph]);
+
+  const nodeMap = useMemo(() => {
+    const map = new Map<string, ModuleNode>();
+    for (const n of moduleGraph.nodes) map.set(n.id, n);
+    return map;
+  }, [moduleGraph]);
+
+  // Build React Flow nodes with simple hierarchical layout
+  const { initialNodes, initialEdges } = useMemo(() => {
+    // Group nodes by layer
+    const layerGroups = new Map<string, ModuleNode[]>();
+    for (const node of moduleGraph.nodes) {
+      const layer = node.layer || "unknown";
+      if (!layerGroups.has(layer)) layerGroups.set(layer, []);
+      layerGroups.get(layer)!.push(node);
+    }
+
+    // Sort layers by order
+    const sortedLayers = Array.from(layerGroups.entries()).sort(
+      ([a], [b]) => (LAYER_ORDER[a] ?? 99) - (LAYER_ORDER[b] ?? 99),
+    );
+
+    const nodes: Node<ModuleNodeData>[] = [];
+    let yOffset = 0;
+
+    for (const [, layerNodes] of sortedLayers) {
+      const rowWidth = layerNodes.length * 220;
+      const startX = -rowWidth / 2 + 110;
+
+      for (let i = 0; i < layerNodes.length; i++) {
+        const mn = layerNodes[i];
+        if (filterLayer && mn.layer !== filterLayer) continue;
+
+        nodes.push({
+          id: mn.id,
+          type: "moduleCard",
+          position: { x: startX + i * 220, y: yOffset },
+          data: { moduleNode: mn, selected: mn.id === selectedNodeId },
+        });
+      }
+
+      yOffset += 140;
+    }
+
+    // Build edges
+    const visibleNodeIds = new Set(nodes.map((n) => n.id));
+    const edges: Edge[] = moduleGraph.edges
+      .filter((e) => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target))
+      .map((edge) => ({
+        id: `${edge.source}->${edge.target}`,
+        source: edge.source,
+        target: edge.target,
+        animated: false,
+        style: { stroke: "#1e293b", strokeWidth: 1.5, opacity: 0.5 },
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          color: "#334155",
+          width: 16,
+          height: 12,
+        },
+      }));
+
+    return { initialNodes: nodes, initialEdges: edges };
+  }, [moduleGraph, selectedNodeId, filterLayer]);
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+
+  // Sync when initial data changes
+  React.useEffect(() => {
+    setNodes(initialNodes);
+    setEdges(initialEdges);
+  }, [initialNodes, initialEdges, setNodes, setEdges]);
+
+  const handleNodeClick = useCallback(
+    (_: React.MouseEvent, node: Node) => {
+      setSelectedNodeId(node.id);
+      onNodeSelect(node.id, nodeMap.get(node.id));
+    },
+    [nodeMap, onNodeSelect],
+  );
+
+  const handlePaneClick = useCallback(() => {
+    setSelectedNodeId(null);
+    onNodeSelect(null);
+  }, [onNodeSelect]);
+
+  // Get unique layers for filter
+  const availableLayers = useMemo(() => {
+    const layers = new Set<string>();
+    for (const n of moduleGraph.nodes) layers.add(n.layer);
+    return Array.from(layers).sort(
+      (a, b) => (LAYER_ORDER[a] ?? 99) - (LAYER_ORDER[b] ?? 99),
+    );
+  }, [moduleGraph]);
+
+  return (
+    <div style={{ width: "100%", height: "100%", position: "relative" }}>
+      {/* Layer filter bar */}
       <div
-        ref={overlayRef}
         style={{
           position: "absolute",
-          inset: 0,
-          pointerEvents: "none",
-          overflow: "hidden",
+          top: 12,
+          left: 12,
+          zIndex: 10,
+          display: "flex",
+          gap: 4,
+          background: "#111118ee",
+          padding: "4px 8px",
+          borderRadius: 8,
+          border: "1px solid #1e1e2e",
         }}
-      />
+      >
+        <FilterButton
+          label="All"
+          active={filterLayer === null}
+          color="#94a3b8"
+          onClick={() => setFilterLayer(null)}
+        />
+        {availableLayers.map((layer) => (
+          <FilterButton
+            key={layer}
+            label={layer}
+            active={filterLayer === layer}
+            color={getLayerColor(layer)}
+            onClick={() => setFilterLayer(filterLayer === layer ? null : layer)}
+          />
+        ))}
+      </div>
+
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onNodeClick={handleNodeClick}
+        onPaneClick={handlePaneClick}
+        nodeTypes={nodeTypes}
+        fitView
+        fitViewOptions={{ padding: 0.2 }}
+        minZoom={0.2}
+        maxZoom={3}
+        proOptions={{ hideAttribution: true }}
+        style={{ background: "#0a0a0f" }}
+      >
+        <Background color="#1e1e2e" gap={32} size={1} />
+        <Controls
+          showInteractive={false}
+          style={{
+            background: "#111118",
+            border: "1px solid #1e1e2e",
+            borderRadius: 8,
+          }}
+        />
+        <MiniMap
+          nodeColor={(n) => {
+            const mn = nodeMap.get(n.id);
+            return mn ? getLayerColor(mn.layer) : "#475569";
+          }}
+          maskColor="#0a0a0f88"
+          style={{
+            background: "#111118",
+            border: "1px solid #1e1e2e",
+            borderRadius: 8,
+          }}
+        />
+      </ReactFlow>
     </div>
   );
 }
 
-function renderCardOverlays(
-  overlay: HTMLElement,
-  cy: cytoscape.Core,
-  nodeMap: Map<string, ModuleNode>,
-  onNodeSelect: (id: string, node?: ModuleNode) => void,
-) {
-  overlay.innerHTML = "";
-
-  cy.nodes().forEach((cyNode) => {
-    const id = cyNode.id();
-    const moduleNode = nodeMap.get(id);
-    if (!moduleNode) return;
-
-    const colors = getLayerTheme(moduleNode.layer);
-    const card = document.createElement("div");
-    card.className = "module-card";
-    card.dataset.nodeId = id;
-    card.style.cssText = `
-      position: absolute;
-      pointer-events: auto;
-      cursor: pointer;
-      min-width: 140px;
-      padding: 8px 14px;
-      border-radius: 10px;
-      background: ${colors.bg};
-      border: 1.5px solid ${colors.border}88;
-      transition: border-color 0.15s, box-shadow 0.15s;
-    `;
-
-    const row1 = document.createElement("div");
-    row1.style.cssText = "display:flex;align-items:center;gap:7px;margin-bottom:3px;";
-    const dot = document.createElement("div");
-    dot.style.cssText = `width:7px;height:7px;border-radius:50%;background:${colors.dot};flex-shrink:0;`;
-    row1.appendChild(dot);
-    const label = document.createElement("span");
-    label.style.cssText = `color:${colors.text};font-size:11px;font-family:'JetBrains Mono','Fira Code',monospace;font-weight:600;letter-spacing:0.02em;`;
-    label.textContent = moduleNode.label;
-    row1.appendChild(label);
-    card.appendChild(row1);
-
-    const row2 = document.createElement("div");
-    row2.style.cssText = "display:flex;gap:6px;align-items:center;";
-    const fileCount = document.createElement("span");
-    fileCount.style.cssText = "color:#475569;font-size:10px;font-family:monospace;";
-    fileCount.textContent = `${moduleNode.fileCount} file${moduleNode.fileCount !== 1 ? "s" : ""}`;
-    row2.appendChild(fileCount);
-    const badge = document.createElement("span");
-    badge.style.cssText = `color:${colors.border};font-size:9px;font-family:monospace;background:${colors.border}18;padding:1px 5px;border-radius:3px;`;
-    badge.textContent = moduleNode.layer;
-    row2.appendChild(badge);
-    card.appendChild(row2);
-
-    card.addEventListener("click", (e) => {
-      e.stopPropagation();
-      onNodeSelect(id, moduleNode);
-    });
-
-    card.addEventListener("mouseenter", () => {
-      card.style.borderColor = colors.border;
-      card.style.boxShadow = `0 0 0 3px ${colors.border}44, 0 8px 32px #00000080`;
-    });
-    card.addEventListener("mouseleave", () => {
-      card.style.borderColor = `${colors.border}88`;
-      card.style.boxShadow = "none";
-    });
-
-    overlay.appendChild(card);
-  });
+function FilterButton({
+  label,
+  active,
+  color,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  color: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 4,
+        padding: "3px 8px",
+        borderRadius: 4,
+        border: "none",
+        background: active ? color + "33" : "transparent",
+        color: active ? "#f1f5f9" : "#64748b",
+        cursor: "pointer",
+        fontSize: 10,
+        fontFamily: "monospace",
+        textTransform: "uppercase",
+        transition: "all 0.15s",
+      }}
+    >
+      <span
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: "50%",
+          background: color,
+        }}
+      />
+      {label}
+    </button>
+  );
 }
