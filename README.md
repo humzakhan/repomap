@@ -1,3 +1,7 @@
+![Repomap Banner](banner.png)
+
+---
+
 # Repomap
 
 Repomap helps you understand an unfamiliar codebase in minutes instead of days. Instead of reading through files line by line trying to piece together how things connect, you get an interactive visual map of the entire repository — architecture, dependencies, data models, and call flows — with clear starting points for where to begin learning.
