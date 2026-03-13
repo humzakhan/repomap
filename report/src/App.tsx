@@ -148,7 +148,7 @@ function renderView(
         />
       );
     case "models":
-      return <DataModels summaries={data.summaries} onNodeSelect={onFileSelect} />;
+      return <DataModels summaries={data.summaries} graph={data.graph} onNodeSelect={onFileSelect} />;
     case "flows":
       return (
         <CallFlow
