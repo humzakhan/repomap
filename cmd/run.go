@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -15,6 +17,7 @@ import (
 	"github.com/repomap/repomap/internal/planner/ui"
 	"github.com/repomap/repomap/internal/renderer"
 	"github.com/repomap/repomap/internal/scanner"
+	"github.com/repomap/repomap/internal/server"
 	"github.com/spf13/cobra"
 )
 
@@ -25,6 +28,8 @@ var runFlags struct {
 	output        string
 	skipSynthesis bool
 	deep          bool
+	serve         bool
+	port          int
 }
 
 func init() {
@@ -41,6 +46,8 @@ func init() {
 	runCmd.Flags().StringVarP(&runFlags.output, "output", "o", "repomap-report.html", "Output file path")
 	runCmd.Flags().BoolVar(&runFlags.skipSynthesis, "skip-synthesis", false, "Skip architecture synthesis stage")
 	runCmd.Flags().BoolVar(&runFlags.deep, "deep", false, "Enable deep flow tracing")
+	runCmd.Flags().BoolVar(&runFlags.serve, "serve", true, "Start local server instead of writing static HTML")
+	runCmd.Flags().IntVar(&runFlags.port, "port", 4242, "Port for local server")
 
 	// Also accept `repomap [path]` as the default command
 	rootCmd.AddCommand(runCmd)
@@ -292,9 +299,7 @@ func runAnalyze(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Printf("\n  Total cost: $%.4f\n", pipelineResult.Stats.TotalCost)
 
-	// Step 5: Render HTML report
-	fmt.Println("  Generating report...")
-
+	// Step 5: Build report data
 	reportData := &renderer.ReportData{
 		Summaries:    pipelineResult.Summaries,
 		Architecture: pipelineResult.Architecture,
@@ -304,12 +309,6 @@ func runAnalyze(cmd *cobra.Command, args []string) error {
 		Metadata:     &graph.Metadata,
 		GitMeta:      gitMeta,
 	}
-
-	if err := renderer.Render(reportData, runFlags.output); err != nil {
-		return fmt.Errorf("rendering report: %w", err)
-	}
-
-	fmt.Printf("\n  ✓  Report written to %s\n", runFlags.output)
 
 	// Log usage
 	usageErr := analyzer.LogUsage(analyzer.UsageEntry{
@@ -328,6 +327,25 @@ func runAnalyze(cmd *cobra.Command, args []string) error {
 	}
 
 	_ = artifacts
+
+	if runFlags.serve {
+		// Start local server
+		addr := fmt.Sprintf(":%d", runFlags.port)
+		srv := server.New(reportData, addr)
+
+		srvCtx, cancel := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+		defer cancel()
+
+		fmt.Println("\n  Press Ctrl+C to stop the server.")
+		return srv.Start(srvCtx)
+	}
+
+	// Static HTML output (--serve=false)
+	fmt.Println("  Generating report...")
+	if err := renderer.Render(reportData, runFlags.output); err != nil {
+		return fmt.Errorf("rendering report: %w", err)
+	}
+	fmt.Printf("\n  ✓  Report written to %s\n", runFlags.output)
 
 	return nil
 }
