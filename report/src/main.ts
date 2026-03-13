@@ -8,12 +8,24 @@ import { StatusBar } from "./components/StatusBar";
 import { ArchitectureMap } from "./views/ArchitectureMap";
 import type { ModuleNode } from "./utils/moduleGrouper";
 
-// Load data from embedded JSON or fixture
+// Load data from API, embedded JSON, or fixture
 async function loadData(): Promise<RepoMapData> {
+  // Try API endpoint first (local server mode)
+  try {
+    const resp = await fetch("/api/report");
+    if (resp.ok) {
+      return await resp.json();
+    }
+  } catch {
+    // Not running in server mode, fall through
+  }
+
+  // Try embedded JSON (static HTML mode)
   const scriptTag = document.getElementById("repomap-data");
   if (scriptTag && scriptTag.textContent && scriptTag.textContent.trim().length > 2) {
     return JSON.parse(scriptTag.textContent);
   }
+
   // Dev mode: load fixture
   const fixture = await import("./fixtures/sample.json");
   return fixture.default as unknown as RepoMapData;
