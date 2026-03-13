@@ -1,13 +1,14 @@
 import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
-  plugins: [tailwindcss()],
+  plugins: [react(), tailwindcss()],
   build: {
     outDir: "dist",
     emptyOutDir: true,
     rollupOptions: {
-      input: "src/main.ts",
+      input: "index.html",
       output: {
         format: "iife",
         entryFileNames: "bundle.js",
@@ -21,5 +22,10 @@ export default defineConfig({
       },
     },
     cssCodeSplit: false,
+  },
+  server: {
+    proxy: {
+      "/api": "http://localhost:4242",
+    },
   },
 });
